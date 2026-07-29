@@ -471,6 +471,7 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
                 delayMinutes = leg.departureDelayMinutes,
                 cancelled = leg.cancelled,
                 copy = copy,
+                connectBelow = true,
             )
         }
         TimelineRide(leg, copy)
@@ -485,6 +486,7 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
                 delayMinutes = leg.arrivalDelayMinutes,
                 cancelled = leg.cancelled,
                 copy = copy,
+                connectAbove = true,
             )
         } else {
             TimelineTransfer(leg, nextLeg, copy)
@@ -503,17 +505,25 @@ private fun TimelineStation(
     cancelled: Boolean,
     copy: Copy,
     markerInverted: Boolean = false,
+    connectAbove: Boolean = false,
+    connectBelow: Boolean = false,
 ) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp())) {
-        TimelineTime(time(actualTime))
-        TimelineMarker(inverted = markerInverted)
-        Column(Modifier.weight(1f)) {
-            LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        TimelineTime(time(actualTime), Modifier.padding(top = 0.35f.gridUnitsAsDp()))
+        TimelineRail(
+            connectAbove = connectAbove,
+            connectBelow = connectBelow,
+            markerInverted = markerInverted,
+            markerTopPadding = 0.35f,
+        )
+        Column(Modifier.weight(1f).padding(vertical = 0.35f.gridUnitsAsDp())) {
             LightText(station, LightTextVariant.ParagraphWide, maxLines = 2)
             Row(
                 modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()),
                 horizontalArrangement = Arrangement.spacedBy(0.3f.gridUnitsAsDp()),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
                 platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
                 when {
                     cancelled -> Badge(copy.cancelled, inverted = true)
@@ -575,6 +585,8 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         cancelled = arrivingLeg.cancelled,
         copy = copy,
         markerInverted = true,
+        connectAbove = true,
+        connectBelow = true,
     )
     TimelineTransferWait(
         durationMinutes = transferMinutes(arrivingLeg, departingLeg),
@@ -591,6 +603,8 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         delayMinutes = departingLeg.departureDelayMinutes,
         cancelled = departingLeg.cancelled,
         copy = copy,
+        connectAbove = true,
+        connectBelow = true,
     )
 }
 
@@ -612,11 +626,11 @@ private fun TimelineTransferWait(
 
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         Spacer(Modifier.width(3.5f.gridUnitsAsDp()))
-        TimelineLine()
+        TimelineRail(true, true, false, 0.55f)
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.2f.gridUnitsAsDp(), bottom = 0.2f.gridUnitsAsDp())
+                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.35f.gridUnitsAsDp(), bottom = 0.35f.gridUnitsAsDp())
                 .background(LightThemeTokens.colors.content)
                 .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.45f.gridUnitsAsDp()),
         ) {
@@ -640,27 +654,61 @@ private fun TimelineTransferWait(
 }
 
 @Composable
-private fun TimelineTime(value: String) {
+private fun TimelineTime(value: String, modifier: Modifier = Modifier) {
     LightText(
         value,
         LightTextVariant.ParagraphWide,
         monospace = true,
         align = TextAlign.End,
-        modifier = Modifier.width(3.5f.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
+        modifier = modifier.width(3.5f.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
         maxLines = 1,
     )
 }
 
 @Composable
-private fun TimelineMarker(inverted: Boolean = false) {
-    Box(Modifier.width(0.75f.gridUnitsAsDp()), contentAlignment = Alignment.TopCenter) {
+private fun TimelineRail(
+    connectAbove: Boolean,
+    connectBelow: Boolean,
+    markerInverted: Boolean,
+    markerTopPadding: Float,
+) {
+    val markerLineCentre = markerTopPadding + 0.45f
+    Box(Modifier.width(0.75f.gridUnitsAsDp()).fillMaxHeight()) {
+        if (connectAbove) {
+            Spacer(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .width(2f.designVerticalPxToDp())
+                    .height(markerLineCentre.gridUnitsAsDp())
+                    .background(LightThemeTokens.colors.content),
+            )
+        }
+        if (connectBelow) {
+            Spacer(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = markerLineCentre.gridUnitsAsDp())
+                    .width(2f.designVerticalPxToDp())
+                    .fillMaxHeight()
+                    .background(LightThemeTokens.colors.content),
+            )
+        }
         Box(
             Modifier
-                .width(0.34f.gridUnitsAsDp())
-                .height(0.34f.gridUnitsAsDp())
-                .background(if (inverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content)
-                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
-        )
+                .align(Alignment.TopCenter)
+                .padding(top = markerTopPadding.gridUnitsAsDp())
+                .width(0.75f.gridUnitsAsDp())
+                .height(0.9f.gridUnitsAsDp()),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .width(0.34f.gridUnitsAsDp())
+                    .height(0.34f.gridUnitsAsDp())
+                    .background(if (markerInverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content)
+                    .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
+            )
+        }
     }
 }
 
