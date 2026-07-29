@@ -17,6 +17,7 @@ class Copy(private val language: Language) {
     val favourites get() = value("Favourites", "Favorieten")
     val settings get() = value("Settings", "Instellingen")
     val nearest get() = value("Nearest stations", "Stations in de buurt")
+    val nearestShort get() = value("Nearest", "Dichtstbij")
     val nearestUnavailable get() = value(
         "Nearest stations are not supported by the current Light SDK because tools have no location access.",
         "Stations in de buurt worden niet ondersteund door de huidige Light SDK, omdat tools geen locatietoegang hebben.",
@@ -41,8 +42,9 @@ class Copy(private val language: Language) {
     val addFavourite get() = value("Add favourite", "Favoriet toevoegen")
     val removeFavourite get() = value("Remove favourite", "Favoriet verwijderen")
     val saveRoute get() = value("Save route", "Route bewaren")
-    val recent get() = value("Recent", "Recent")
+    val recents get() = value("Recents", "Recent")
     val favouriteStations get() = value("Favourite stations", "Favoriete stations")
+    val noFavouriteStations get() = value("No favourite stations yet.", "Nog geen favoriete stations.")
     val favouriteRoutes get() = value("Favourite routes", "Favoriete routes")
     val travel get() = value("Travel", "Reizen")
     val route get() = value("Route", "Route")

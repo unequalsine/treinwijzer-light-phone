@@ -28,8 +28,11 @@ enum class StationPurpose { INFO, DISRUPTIONS, ORIGIN, DESTINATION, VIA }
 sealed interface ScreenMode {
     data object Loading : ScreenMode
     data object Home : ScreenMode
+    data class StationPicker(val purpose: StationPurpose) : ScreenMode
     data class StationIndex(val purpose: StationPurpose) : ScreenMode
     data class StationResults(val purpose: StationPurpose, val query: String, val stations: List<Station>) : ScreenMode
+    data class StationRecents(val purpose: StationPurpose, val stations: List<Station>) : ScreenMode
+    data class StationNearestUnavailable(val purpose: StationPurpose) : ScreenMode
     data class Departures(val station: Station, val departures: List<Departure>) : ScreenMode
     data class DepartureDetails(val station: Station, val departure: Departure) : ScreenMode
     data class Disruptions(val station: Station, val disruptions: List<Disruption>) : ScreenMode
@@ -101,7 +104,10 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         if (mode == ScreenMode.Home || mode == ScreenMode.Loading) return false
         _uiState.update { it.copy(mode = when (mode) {
             is ScreenMode.StationResults -> ScreenMode.StationIndex(mode.purpose)
-            is ScreenMode.StationIndex -> when (mode.purpose) {
+            is ScreenMode.StationIndex -> ScreenMode.StationPicker(mode.purpose)
+            is ScreenMode.StationRecents -> ScreenMode.StationPicker(mode.purpose)
+            is ScreenMode.StationNearestUnavailable -> ScreenMode.StationPicker(mode.purpose)
+            is ScreenMode.StationPicker -> when (mode.purpose) {
                 StationPurpose.ORIGIN, StationPurpose.DESTINATION, StationPurpose.VIA -> ScreenMode.Planner
                 StationPurpose.INFO, StationPurpose.DISRUPTIONS -> ScreenMode.Home
             }
@@ -152,8 +158,16 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun openStationSearch(purpose: StationPurpose) {
-        _uiState.update { it.copy(mode = ScreenMode.StationIndex(purpose), errorModal = null) }
+        _uiState.update { it.copy(mode = ScreenMode.StationPicker(purpose), errorModal = null) }
     }
+
+    fun openStationIndex(purpose: StationPurpose) = updateMode(ScreenMode.StationIndex(purpose))
+
+    fun openStationRecents(purpose: StationPurpose) = updateMode(
+        ScreenMode.StationRecents(purpose, _uiState.value.persisted.recentStations),
+    )
+
+    fun openStationNearest(purpose: StationPurpose) = updateMode(ScreenMode.StationNearestUnavailable(purpose))
 
     fun selectStationLetter(letter: String, purpose: StationPurpose) {
         val stations = filterStationsByLetter(_uiState.value.persisted.stations, letter)

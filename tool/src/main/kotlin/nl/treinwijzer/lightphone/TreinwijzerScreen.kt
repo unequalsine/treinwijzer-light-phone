@@ -66,8 +66,14 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                 when (val mode = state.mode) {
                     ScreenMode.Loading -> MessageScreen(copy.app, copy.loading)
                     ScreenMode.Home -> HomeContent(state, copy, viewModel)
+                    is ScreenMode.StationPicker -> StationPickerContent(mode, state, copy, viewModel)
                     is ScreenMode.StationIndex -> StationIndexContent(mode, copy, viewModel)
                     is ScreenMode.StationResults -> StationResultsContent(mode, copy, viewModel)
+                    is ScreenMode.StationRecents -> StationRecentsContent(mode, copy, viewModel)
+                    is ScreenMode.StationNearestUnavailable -> MessageScreen(
+                        copy.nearest,
+                        copy.nearestUnavailable,
+                    ) { viewModel.openStationSearch(mode.purpose) }
                     is ScreenMode.Departures -> DeparturesContent(mode, state, copy, viewModel)
                     is ScreenMode.DepartureDetails -> DepartureDetailsContent(mode, copy, viewModel)
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
@@ -134,8 +140,38 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
 }
 
 @Composable
+private fun StationPickerContent(
+    mode: ScreenMode.StationPicker,
+    state: TreinwijzerUiState,
+    copy: Copy,
+    vm: TreinwijzerViewModel,
+) {
+    ScreenFrame(copy.chooseStation, { vm.backFromStationPicker(mode.purpose) }) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.25f.gridUnitsAsDp()),
+        ) {
+            PickerShortcut("A–Z", Modifier.weight(1f)) {
+                vm.openStationIndex(mode.purpose)
+            }
+            PickerShortcut(copy.recents, Modifier.weight(1f)) {
+                vm.openStationRecents(mode.purpose)
+            }
+            PickerShortcut(copy.nearestShort, Modifier.weight(1f)) {
+                vm.openStationNearest(mode.purpose)
+            }
+        }
+        Section(copy.favouriteStations)
+        if (state.persisted.favouriteStations.isEmpty()) Body(copy.noFavouriteStations)
+        state.persisted.favouriteStations.forEach { station ->
+            ActionRow(station.name) { vm.selectStation(station, mode.purpose) }
+        }
+    }
+}
+
+@Composable
 private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.stationIndex, { vm.backFromStationPicker(mode.purpose) }) {
+    ScreenFrame(copy.stationIndex, { vm.openStationSearch(mode.purpose) }) {
         Section(copy.chooseLetter)
         stationLetters.chunked(3).forEach { rowLetters ->
             Row(
@@ -153,7 +189,15 @@ private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: T
 
 @Composable
 private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(mode.query, { vm.openStationSearch(mode.purpose) }) {
+    ScreenFrame(mode.query, { vm.openStationIndex(mode.purpose) }) {
+        if (mode.stations.isEmpty()) Body(copy.noResults)
+        mode.stations.forEach { station -> ActionRow(station.name) { vm.selectStation(station, mode.purpose) } }
+    }
+}
+
+@Composable
+private fun StationRecentsContent(mode: ScreenMode.StationRecents, copy: Copy, vm: TreinwijzerViewModel) {
+    ScreenFrame(copy.recents, { vm.openStationSearch(mode.purpose) }) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
         mode.stations.forEach { station -> ActionRow(station.name) { vm.selectStation(station, mode.purpose) } }
     }
@@ -374,6 +418,25 @@ private fun MessageScreen(title: String, message: String, onBack: (() -> Unit)? 
             LightText(message, LightTextVariant.Copy, align = TextAlign.Center)
         }
         if (onBack != null) LightBottomBar(listOf(LightBarButton.LightIcon(LightIcons.BACK, onClick = onBack)))
+    }
+}
+
+@Composable
+private fun PickerShortcut(
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .padding(vertical = 0.18f.gridUnitsAsDp())
+            .height(1.8f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.25f.gridUnitsAsDp()),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(title, LightTextVariant.Paragraph, align = TextAlign.Center, maxLines = 2)
     }
 }
 
