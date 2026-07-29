@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -38,6 +41,7 @@ import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.designVerticalPxToDp
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -304,55 +308,302 @@ private fun TripsContent(mode: ScreenMode.Trips, copy: Copy, vm: TreinwijzerView
 @Composable
 private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     val trip = mode.trip
-    ScreenFrame(journeyTitle(trip), vm::openPlanner) {
-        Detail("${time(trip.departure)}–${time(trip.arrival)}", tripSummary(trip, copy))
-        trip.price?.let { Detail(copy.price, price(it)) }
-        trip.firstClassPrice?.let { Detail("${copy.price} 1", price(it)) }
-        trip.supplementPrice?.let { Detail("Supplement", price(it)) }
-        trip.legs.forEachIndexed { index, leg ->
-            Section("${index + 1}. ${leg.origin.name} → ${leg.destination.name}")
-            TrainPlatformBadges(
-                trainType = leg.trainType,
-                trainNumber = leg.trainNumber,
-                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
-                copy = copy,
+    val active = state.persisted.activeJourney?.id == trip.id
+    ScreenFrame(copy.journeyDetails, vm::openPlanner) {
+        JourneyOverview(trip, copy)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            PrimaryJourneyAction(
+                title = if (active) copy.openActiveJourney else copy.track,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    if (active) vm.openActive() else vm.startTracking(trip)
+                    Unit
+                },
             )
-            Detail("${time(leg.actualDeparture)}–${time(leg.actualArrival)}", leg.serviceDestinationName.orEmpty())
-            val arrivalPlatform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform
-            if (!arrivalPlatform.isNullOrBlank()) Detail("${copy.arriving} · ${copy.platform}", arrivalPlatform)
-            leg.transferMinutesAfterLeg?.let { Detail(copy.transfer, "$it ${copy.minutes}") }
-            leg.messages.forEach { Body(it) }
+            mode.request?.let { request ->
+                PrimaryJourneyAction(copy.saveRoute, Modifier.weight(1f)) { vm.saveRoute(request) }
+            }
         }
-        trip.disruptions.forEach { ActionRow(it.title, it.severity) { vm.showDisruption(it) } }
-        mode.request?.let { ActionRow(copy.saveRoute, routeSummary(it.origin, it.destination)) { vm.saveRoute(it) } }
-        ActionRow(copy.track, copy.alerts) { vm.startTracking(trip) }
-        if (trip.legs.size > 1) ActionRow(copy.recovery, trip.legs.first().destination.name) { vm.loadRecovery(trip) }
-        if (state.persisted.activeJourney?.id == trip.id) Body(copy.live)
+        Section(copy.journeyTimeline)
+        JourneyTimeline(trip, copy)
+        JourneyFares(trip, copy)
+        if (trip.disruptions.isNotEmpty()) {
+            Section(copy.disruptions)
+            trip.disruptions.forEach { ActionRow(it.title, it.severity) { vm.showDisruption(it) } }
+        }
+        if (trip.legs.size > 1) {
+            Section(copy.more)
+            ActionRow(copy.recovery, trip.legs.first().destination.name) { vm.loadRecovery(trip) }
+        }
     }
 }
 
 @Composable
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.activeJourney, vm::home) {
-        Heading(journeyTitle(journey))
-        Detail("${time(journey.departure)}–${time(journey.arrival)}", tripSummary(journey, copy))
-        journey.legs.forEach { leg ->
-            Section("${leg.origin.name} → ${leg.destination.name}")
-            TrainPlatformBadges(
-                trainType = leg.trainType,
-                trainNumber = leg.trainNumber,
-                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
-                copy = copy,
-            )
-            Detail("${time(leg.actualDeparture)}–${time(leg.actualArrival)}", leg.serviceDestinationName.orEmpty())
-            if (leg.departureDelayMinutes > 0) Body("+${leg.departureDelayMinutes} ${copy.minutes}")
-            leg.messages.forEach { Body(it) }
+        JourneyOverview(journey, copy)
+        PrimaryJourneyAction(copy.refresh, Modifier.fillMaxWidth(), vm::manualRefreshActive)
+        Section(copy.journeyTimeline)
+        JourneyTimeline(journey, copy)
+        if (journey.disruptions.isNotEmpty()) {
+            Section(copy.disruptions)
+            journey.disruptions.forEach { Body(it.title) }
         }
-        journey.disruptions.forEach { Body(it.title) }
-        ActionRow(copy.refresh, copy.live, vm::manualRefreshActive)
-        if (journey.legs.size > 1) ActionRow(copy.recovery, journey.legs.first().destination.name) { vm.loadRecovery(journey) }
+        if (journey.legs.size > 1) {
+            Section(copy.more)
+            ActionRow(copy.recovery, journey.legs.first().destination.name) { vm.loadRecovery(journey) }
+        }
         ActionRow(copy.stopTracking, copy.activeJourney, vm::stopTracking)
     }
+}
+
+@Composable
+private fun JourneyOverview(trip: TripOption, copy: Copy) {
+    val origin = trip.legs.firstOrNull()?.origin?.name.orEmpty()
+    val destination = trip.legs.lastOrNull()?.destination?.name.orEmpty()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(0.75f.gridUnitsAsDp()),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            JourneyEndpoint(time(trip.departure), origin, TextAlign.Start, Modifier.weight(1f))
+            LightText("→", LightTextVariant.Subheading, monospace = true)
+            JourneyEndpoint(time(trip.arrival), destination, TextAlign.End, Modifier.weight(1f))
+        }
+        LightText(
+            tripSummary(trip, copy),
+            LightTextVariant.Detail,
+            lighten = true,
+            modifier = Modifier.padding(top = 0.55f.gridUnitsAsDp()),
+        )
+    }
+}
+
+@Composable
+private fun JourneyEndpoint(time: String, station: String, align: TextAlign, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        LightText(time, LightTextVariant.Subheading, monospace = true, align = align, modifier = Modifier.fillMaxWidth())
+        LightText(station, LightTextVariant.Detail, align = align, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+    }
+}
+
+@Composable
+private fun PrimaryJourneyAction(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .height(1.8f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.content)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.45f.gridUnitsAsDp()),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            color = LightThemeTokens.colors.background,
+            align = TextAlign.Center,
+            maxLines = 2,
+        )
+    }
+}
+
+@Composable
+private fun JourneyTimeline(trip: TripOption, copy: Copy) {
+    if (trip.legs.isEmpty()) {
+        Body(copy.noJourneys)
+        return
+    }
+    trip.legs.forEachIndexed { index, leg ->
+        if (index == 0) {
+            TimelineStation(
+                label = copy.leaving,
+                station = leg.origin.name,
+                actualTime = leg.actualDeparture,
+                plannedTime = leg.plannedDeparture,
+                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
+                delayMinutes = leg.departureDelayMinutes,
+                cancelled = leg.cancelled,
+                copy = copy,
+            )
+        }
+        TimelineRide(leg, copy)
+        val nextLeg = trip.legs.getOrNull(index + 1)
+        if (nextLeg == null) {
+            TimelineStation(
+                label = copy.arriving,
+                station = leg.destination.name,
+                actualTime = leg.actualArrival,
+                plannedTime = leg.plannedArrival,
+                platform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform,
+                delayMinutes = leg.arrivalDelayMinutes,
+                cancelled = leg.cancelled,
+                copy = copy,
+            )
+        } else {
+            TimelineTransfer(leg, nextLeg, copy)
+        }
+    }
+}
+
+@Composable
+private fun TimelineStation(
+    label: String,
+    station: String,
+    actualTime: String,
+    plannedTime: String,
+    platform: String?,
+    delayMinutes: Int,
+    cancelled: Boolean,
+    copy: Copy,
+) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp())) {
+        TimelineTime(time(actualTime))
+        TimelineMarker()
+        Column(Modifier.weight(1f)) {
+            LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
+            LightText(station, LightTextVariant.ParagraphWide, maxLines = 2)
+            Row(
+                modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()),
+                horizontalArrangement = Arrangement.spacedBy(0.3f.gridUnitsAsDp()),
+            ) {
+                platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
+                when {
+                    cancelled -> Badge(copy.cancelled, inverted = true)
+                    delayMinutes > 0 -> Badge("+$delayMinutes ${copy.minutes}")
+                }
+            }
+            if (delayMinutes > 0) {
+                LightText(
+                    "${copy.scheduled} ${time(plannedTime)}",
+                    LightTextVariant.Superfine,
+                    lighten = true,
+                    modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineRide(leg: TripLeg, copy: Copy) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Spacer(Modifier.width(3.5f.gridUnitsAsDp()))
+        TimelineLine()
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.35f.gridUnitsAsDp(), bottom = 0.7f.gridUnitsAsDp()),
+        ) {
+            TrainPlatformBadges(leg.trainType, leg.trainNumber, null, copy)
+            leg.serviceDestinationName?.takeIf(String::isNotBlank)?.let {
+                LightText(
+                    "${copy.towards} $it",
+                    LightTextVariant.Detail,
+                    lighten = true,
+                    modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()),
+                    maxLines = 2,
+                )
+            }
+            leg.messages.forEach { message ->
+                LightText(message, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()), maxLines = 3)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: Copy) {
+    val transferDuration = transferMinutes(arrivingLeg, departingLeg)?.let { " · $it ${copy.minutes}" }.orEmpty()
+    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp())) {
+        TimelineTime(time(arrivingLeg.actualArrival))
+        TimelineMarker(inverted = true)
+        Column(
+            Modifier
+                .weight(1f)
+                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+                .padding(0.55f.gridUnitsAsDp()),
+        ) {
+            LightText(
+                "${copy.transfer.uppercase(Locale.ROOT)}$transferDuration",
+                LightTextVariant.Superfine,
+                monospace = true,
+            )
+            LightText(arrivingLeg.destination.name, LightTextVariant.ParagraphWide, maxLines = 2)
+            TimelineConnection(copy.arriving, arrivingLeg.actualArrival, arrivingLeg.actualArrivalPlatform ?: arrivingLeg.plannedArrivalPlatform, copy)
+            TimelineConnection(copy.leaving, departingLeg.actualDeparture, departingLeg.actualDeparturePlatform ?: departingLeg.plannedDeparturePlatform, copy)
+        }
+    }
+}
+
+@Composable
+private fun TimelineConnection(label: String, value: String, platform: String?, copy: Copy) {
+    val platformText = platform?.takeIf(String::isNotBlank)?.let { " · ${copy.platform} $it" }.orEmpty()
+    LightText(
+        "$label ${time(value)}$platformText",
+        LightTextVariant.Detail,
+        lighten = true,
+        modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
+        maxLines = 2,
+    )
+}
+
+@Composable
+private fun TimelineTime(value: String) {
+    LightText(
+        value,
+        LightTextVariant.ParagraphWide,
+        monospace = true,
+        align = TextAlign.End,
+        modifier = Modifier.width(3.5f.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
+        maxLines = 1,
+    )
+}
+
+@Composable
+private fun TimelineMarker(inverted: Boolean = false) {
+    Box(Modifier.width(0.75f.gridUnitsAsDp()), contentAlignment = Alignment.TopCenter) {
+        Box(
+            Modifier
+                .width(0.34f.gridUnitsAsDp())
+                .height(0.34f.gridUnitsAsDp())
+                .background(if (inverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content)
+                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
+        )
+    }
+}
+
+@Composable
+private fun TimelineLine() {
+    Box(
+        Modifier
+            .width(0.75f.gridUnitsAsDp())
+            .fillMaxHeight(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Spacer(
+            Modifier
+                .width(2f.designVerticalPxToDp())
+                .fillMaxHeight()
+                .background(LightThemeTokens.colors.content),
+        )
+    }
+}
+
+@Composable
+private fun JourneyFares(trip: TripOption, copy: Copy) {
+    if (trip.price == null && trip.firstClassPrice == null && trip.supplementPrice == null) return
+    Section(copy.fares)
+    trip.price?.let { Detail(copy.secondClass, price(it)) }
+    trip.firstClassPrice?.let { Detail(copy.firstClass, price(it)) }
+    trip.supplementPrice?.let { Detail(copy.supplement, price(it)) }
 }
 
 @Composable
@@ -650,6 +901,12 @@ private fun parsedInstant(value: String): Instant? =
     runCatching { Instant.parse(value) }.getOrNull()
         ?: runCatching { OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant() }.getOrNull()
         ?: runCatching { OffsetDateTime.parse(value, compactOffsetFormatter).toInstant() }.getOrNull()
+private fun transferMinutes(arrivingLeg: TripLeg, departingLeg: TripLeg): Int? {
+    arrivingLeg.transferMinutesAfterLeg?.let { return it }
+    val arrival = parsedInstant(arrivingLeg.actualArrival) ?: return null
+    val departure = parsedInstant(departingLeg.actualDeparture) ?: return null
+    return Duration.between(arrival, departure).toMinutes().toInt().takeIf { it >= 0 }
+}
 internal fun time(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(timeFormatter) ?: value
 internal fun dateTime(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(dateFormatter) ?: value
 private fun price(value: JourneyPrice): String = String.format(Locale.UK, "€ %.2f", value.amountEuroCents / 100.0)
