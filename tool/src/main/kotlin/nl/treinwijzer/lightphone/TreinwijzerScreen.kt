@@ -509,9 +509,19 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
 
 @Composable
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
+    val recoveryRoute = journey.activeRecoveryRoute(Instant.now())
     ScreenFrame(copy.activeJourney, vm::back) {
         JourneyOverview(journey, copy)
-        PrimaryAction(copy.refresh, copy.live, Modifier.fillMaxWidth(), vm::manualRefreshActive)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            recoveryRoute?.let { route ->
+                SecondaryAction(copy.recover, Modifier.weight(1f)) { vm.loadRecovery(route) }
+            }
+            SecondaryAction(copy.stop, Modifier.weight(1f), vm::stopTracking)
+            PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
+        }
         Section(copy.journeyTimeline)
         JourneyTimeline(journey, copy)
         if (journey.disruptions.isNotEmpty()) {
@@ -522,11 +532,6 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
                 }
             }
         }
-        journey.activeRecoveryRoute(Instant.now())?.let { recoveryRoute ->
-            Section(copy.more)
-            ActionRow(copy.recovery, recoveryRoute.from.name) { vm.loadRecovery(recoveryRoute) }
-        }
-        ActionRow(copy.stopTracking, copy.activeJourney, vm::stopTracking)
     }
 }
 
@@ -702,6 +707,30 @@ private fun PrimaryAction(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SecondaryAction(
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .height(1.8f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.35f.gridUnitsAsDp()),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            align = TextAlign.Center,
+            maxLines = 2,
+        )
     }
 }
 
