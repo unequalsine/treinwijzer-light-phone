@@ -150,6 +150,35 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun screenHistoryReturnsThroughNestedScreens() {
+        val history = ScreenHistory()
+        val picker = ScreenMode.StationPicker(StationPurpose.INFO)
+        val index = ScreenMode.StationIndex(StationPurpose.INFO)
+
+        history.record(ScreenMode.Home, picker)
+        history.record(picker, index)
+        history.record(index, ScreenMode.StationResults(StationPurpose.INFO, "A", emptyList()))
+
+        assertEquals(index, history.previous())
+        assertEquals(picker, history.previous())
+        assertEquals(ScreenMode.Home, history.previous())
+    }
+
+    @Test
+    fun screenHistoryCanDiscardPickerLayersWhenReturningToPlanner() {
+        val history = ScreenHistory()
+        val picker = ScreenMode.StationPicker(StationPurpose.ORIGIN)
+        val index = ScreenMode.StationIndex(StationPurpose.ORIGIN)
+
+        history.record(ScreenMode.Home, ScreenMode.Planner)
+        history.record(ScreenMode.Planner, picker)
+        history.record(picker, index)
+
+        assertEquals(ScreenMode.Planner, history.previousMatching { it == ScreenMode.Planner })
+        assertEquals(ScreenMode.Home, history.previous())
+    }
+
+    @Test
     fun bothLocalisationsCoverSdkLimitations() {
         assertTrue(Copy(Language.ENGLISH).nearestUnavailable.contains("not supported"))
         assertTrue(Copy(Language.DUTCH).nearestUnavailable.contains("niet ondersteund"))

@@ -81,7 +81,8 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.StationNearestUnavailable -> MessageScreen(
                         copy.nearest,
                         copy.nearestUnavailable,
-                    ) { viewModel.openStationSearch(mode.purpose) }
+                        viewModel::back,
+                    )
                     is ScreenMode.Departures -> DeparturesContent(mode, state, copy, viewModel)
                     is ScreenMode.DepartureDetails -> DepartureDetailsContent(mode, copy, viewModel)
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
@@ -95,7 +96,7 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                             editorKey = mode.session,
                             keyboardOptionsFlow = keyboardOptions,
                             onSubmit = { viewModel.setPlannerDateTime(it.toString()) },
-                            onBack = viewModel::openPlanner,
+                            onBack = viewModel::back,
                             submitIcon = LightIcons.ACCEPT,
                             singleLine = true,
                             modifier = Modifier.fillMaxSize(),
@@ -105,7 +106,7 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.TripDetails -> TripDetailsContent(mode, state, copy, viewModel)
                     ScreenMode.Favourites -> FavouritesContent(state, copy, viewModel)
                     ScreenMode.Settings -> SettingsContent(state, copy, viewModel)
-                    ScreenMode.NearestUnavailable -> MessageScreen(copy.nearest, copy.nearestUnavailable, viewModel::home)
+                    ScreenMode.NearestUnavailable -> MessageScreen(copy.nearest, copy.nearestUnavailable, viewModel::back)
                     is ScreenMode.Active -> ActiveJourneyContent(mode.journey, copy, viewModel)
                 }
 
@@ -157,7 +158,7 @@ private fun StationPickerContent(
     copy: Copy,
     vm: TreinwijzerViewModel,
 ) {
-    ScreenFrame(copy.chooseStation, { vm.backFromStationPicker(mode.purpose) }) {
+    ScreenFrame(copy.chooseStation, vm::back) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.25f.gridUnitsAsDp()),
@@ -182,7 +183,7 @@ private fun StationPickerContent(
 
 @Composable
 private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.stationIndex, { vm.openStationSearch(mode.purpose) }) {
+    ScreenFrame(copy.stationIndex, vm::back) {
         Section(copy.chooseLetter)
         stationLetters.chunked(3).forEach { rowLetters ->
             Row(
@@ -200,7 +201,7 @@ private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: T
 
 @Composable
 private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(mode.query, { vm.openStationIndex(mode.purpose) }) {
+    ScreenFrame(mode.query, vm::back) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
         mode.stations.forEach { station -> ListAction(station.name) { vm.selectStation(station, mode.purpose) } }
     }
@@ -208,7 +209,7 @@ private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, v
 
 @Composable
 private fun StationRecentsContent(mode: ScreenMode.StationRecents, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.recents, { vm.openStationSearch(mode.purpose) }) {
+    ScreenFrame(copy.recents, vm::back) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
         mode.stations.forEach { station -> ListAction(station.name) { vm.selectStation(station, mode.purpose) } }
     }
@@ -216,7 +217,7 @@ private fun StationRecentsContent(mode: ScreenMode.StationRecents, copy: Copy, v
 
 @Composable
 private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(mode.station.name, vm::home) {
+    ScreenFrame(mode.station.name, vm::back) {
         val favourite = state.persisted.favouriteStations.any { it.code == mode.station.code }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -238,7 +239,7 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
 @Composable
 private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Copy, vm: TreinwijzerViewModel) {
     val departure = mode.departure
-    ScreenFrame(copy.departureDetails, vm::home) {
+    ScreenFrame(copy.departureDetails, vm::back) {
         DepartureHero(departure, copy)
         if (departure.stops.isNotEmpty()) {
             Section(copy.routeStops)
@@ -258,7 +259,7 @@ private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Cop
 
 @Composable
 private fun DisruptionsContent(mode: ScreenMode.Disruptions, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.disruptions, vm::home) {
+    ScreenFrame(copy.disruptions, vm::back) {
         val currentDisruptions = mode.disruptions.filterNot(Disruption::isMaintenance)
         val plannedMaintenance = mode.disruptions.filter(Disruption::isMaintenance)
         if (mode.disruptions.isEmpty()) Body(copy.noDisruptions)
@@ -279,7 +280,7 @@ private fun DisruptionsContent(mode: ScreenMode.Disruptions, copy: Copy, vm: Tre
 
 @Composable
 private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(if (disruption.isMaintenance) copy.plannedMaintenance else copy.disruption, vm::home) {
+    ScreenFrame(if (disruption.isMaintenance) copy.plannedMaintenance else copy.disruption, vm::back) {
         DisruptionHero(disruption, copy)
         disruption.trajectories.forEach { Notice(it) }
         val situation = listOfNotNull(disruption.cause, disruption.situation, disruption.description)
@@ -297,7 +298,7 @@ private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: Tre
 
 @Composable
 private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.planner, vm::home) {
+    ScreenFrame(copy.planner, vm::back) {
         Section(copy.route)
         PlannerRouteCard(state, copy, vm)
         Row(
@@ -335,7 +336,7 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
 
 @Composable
 private fun TripsContent(mode: ScreenMode.Trips, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(if (mode.recovery) copy.recovery else copy.planner, vm::openPlanner) {
+    ScreenFrame(if (mode.recovery) copy.recovery else copy.planner, vm::back) {
         if (mode.trips.isEmpty()) Body(copy.noJourneys)
         mode.trips.forEachIndexed { index, trip ->
             JourneyResultCard(index + 1, trip, copy) { vm.showTrip(trip, mode.request) }
@@ -347,7 +348,7 @@ private fun TripsContent(mode: ScreenMode.Trips, copy: Copy, vm: TreinwijzerView
 private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     val trip = mode.trip
     val active = state.persisted.activeJourney?.id == trip.id
-    ScreenFrame(copy.journeyDetails, vm::openPlanner) {
+    ScreenFrame(copy.journeyDetails, vm::back) {
         JourneyOverview(trip, copy)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -386,7 +387,7 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
 
 @Composable
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.activeJourney, vm::home) {
+    ScreenFrame(copy.activeJourney, vm::back) {
         JourneyOverview(journey, copy)
         PrimaryAction(copy.refresh, copy.live, Modifier.fillMaxWidth(), vm::manualRefreshActive)
         Section(copy.journeyTimeline)
@@ -878,7 +879,7 @@ private fun JourneyFares(trip: TripOption, copy: Copy) {
 
 @Composable
 private fun FavouritesContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.favourites, vm::home) {
+    ScreenFrame(copy.favourites, vm::back) {
         Section(copy.favouriteStations)
         if (state.persisted.favouriteStations.isEmpty()) Body(copy.noFavouriteStations)
         state.persisted.favouriteStations.forEach { station -> ListAction(station.name, copy.departures) { vm.loadDepartures(station) } }
@@ -892,7 +893,7 @@ private fun FavouritesContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwi
 
 @Composable
 private fun SettingsContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.settings, vm::home) {
+    ScreenFrame(copy.settings, vm::back) {
         Section("Language / Taal")
         SegmentedChoices(
             left = copy.english,

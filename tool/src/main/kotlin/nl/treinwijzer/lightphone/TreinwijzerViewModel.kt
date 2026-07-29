@@ -47,6 +47,30 @@ sealed interface ScreenMode {
     data class Active(val journey: TripOption) : ScreenMode
 }
 
+internal class ScreenHistory {
+    private val entries = ArrayDeque<ScreenMode>()
+
+    @Synchronized
+    fun record(current: ScreenMode, destination: ScreenMode) {
+        if (current != ScreenMode.Loading && current != destination) entries.addLast(current)
+    }
+
+    @Synchronized
+    fun previous(): ScreenMode? = entries.removeLastOrNull()
+
+    @Synchronized
+    fun previousMatching(predicate: (ScreenMode) -> Boolean): ScreenMode? {
+        while (entries.isNotEmpty()) {
+            val candidate = entries.removeLast()
+            if (predicate(candidate)) return candidate
+        }
+        return null
+    }
+
+    @Synchronized
+    fun clear() = entries.clear()
+}
+
 data class TreinwijzerUiState(
     val mode: ScreenMode = ScreenMode.Loading,
     val persisted: PersistedState = PersistedState(),
@@ -67,6 +91,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private var foregroundRefresh: Job? = null
     private var dateTimeInputSession = 0
     private val handledUpdates = LinkedHashSet<String>()
+    private val screenHistory = ScreenHistory()
 
     init {
         viewModelScope.launch(Dispatchers.IO) { initialise() }
@@ -100,26 +125,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     override fun onBackPressed(): Boolean {
-        val mode = _uiState.value.mode
-        if (mode == ScreenMode.Home || mode == ScreenMode.Loading) return false
-        _uiState.update { it.copy(mode = when (mode) {
-            is ScreenMode.StationResults -> ScreenMode.StationIndex(mode.purpose)
-            is ScreenMode.StationIndex -> ScreenMode.StationPicker(mode.purpose)
-            is ScreenMode.StationRecents -> ScreenMode.StationPicker(mode.purpose)
-            is ScreenMode.StationNearestUnavailable -> ScreenMode.StationPicker(mode.purpose)
-            is ScreenMode.StationPicker -> when (mode.purpose) {
-                StationPurpose.ORIGIN, StationPurpose.DESTINATION, StationPurpose.VIA -> ScreenMode.Planner
-                StationPurpose.INFO, StationPurpose.DISRUPTIONS -> ScreenMode.Home
-            }
-            is ScreenMode.DepartureDetails -> ScreenMode.Departures(mode.station, listOf(mode.departure))
-            is ScreenMode.DisruptionDetails -> ScreenMode.Home
-            is ScreenMode.TripDetails -> mode.request?.let { request ->
-                ScreenMode.Trips(request, listOf(mode.trip))
-            } ?: ScreenMode.Home
-            is ScreenMode.Active -> ScreenMode.Home
-            else -> ScreenMode.Home
-        }, errorModal = null) }
-        return true
+        return navigateBack()
     }
 
     private suspend fun initialise() {
@@ -158,7 +164,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun openStationSearch(purpose: StationPurpose) {
-        _uiState.update { it.copy(mode = ScreenMode.StationPicker(purpose), errorModal = null) }
+        updateMode(ScreenMode.StationPicker(purpose))
     }
 
     fun openStationIndex(purpose: StationPurpose) = updateMode(ScreenMode.StationIndex(purpose))
@@ -174,15 +180,6 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         updateMode(ScreenMode.StationResults(purpose, letter.uppercase(), stations))
     }
 
-    fun backFromStationPicker(purpose: StationPurpose) {
-        updateMode(
-            when (purpose) {
-                StationPurpose.ORIGIN, StationPurpose.DESTINATION, StationPurpose.VIA -> ScreenMode.Planner
-                StationPurpose.INFO, StationPurpose.DISRUPTIONS -> ScreenMode.Home
-            },
-        )
-    }
-
     fun selectStation(station: Station, purpose: StationPurpose) {
         viewModelScope.launch(Dispatchers.IO) {
             updatePersisted { state ->
@@ -193,13 +190,13 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
             StationPurpose.INFO -> loadDepartures(station)
             StationPurpose.DISRUPTIONS -> loadDisruptions(station)
             StationPurpose.ORIGIN -> {
-                _uiState.update { it.copy(plannerOrigin = station, mode = ScreenMode.Planner) }
+                returnToPlanner { it.copy(plannerOrigin = station) }
             }
             StationPurpose.DESTINATION -> {
-                _uiState.update { it.copy(plannerDestination = station, mode = ScreenMode.Planner) }
+                returnToPlanner { it.copy(plannerDestination = station) }
             }
             StationPurpose.VIA -> {
-                _uiState.update { it.copy(plannerVia = station, mode = ScreenMode.Planner) }
+                returnToPlanner { it.copy(plannerVia = station) }
             }
         }
     }
@@ -254,7 +251,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         }
         viewModelScope.launch(Dispatchers.IO) {
             updatePersisted { state -> state.copy(plannerPreferences = state.plannerPreferences.copy(dateTime = formatted)) }
-            updateMode(ScreenMode.Planner)
+            returnToPlanner()
         }
     }
 
@@ -340,12 +337,14 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun useRoute(route: FavouriteRoute) {
+        screenHistory.record(_uiState.value.mode, ScreenMode.Planner)
         _uiState.update {
             it.copy(
                 plannerOrigin = route.origin,
                 plannerDestination = route.destination,
                 plannerVia = route.via,
                 mode = ScreenMode.Planner,
+                errorModal = null,
             )
         }
     }
@@ -354,7 +353,14 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     fun openSettings() = updateMode(ScreenMode.Settings)
     fun openNearest() = updateMode(ScreenMode.NearestUnavailable)
     fun openActive() = _uiState.value.persisted.activeJourney?.let { updateMode(ScreenMode.Active(it)) }
-    fun home() = updateMode(ScreenMode.Home)
+    fun home() {
+        screenHistory.clear()
+        replaceMode(ScreenMode.Home)
+    }
+
+    fun back() {
+        navigateBack()
+    }
 
     fun setLanguage(language: Language) {
         viewModelScope.launch(Dispatchers.IO) { updatePersisted { it.copy(language = language) } }
@@ -390,7 +396,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         val state = _uiState.value.persisted
         api.clearActiveJourney(state.identity())
         updatePersisted { it.copy(activeJourney = null) }
-        updateMode(ScreenMode.Home)
+        home()
         foregroundRefresh?.cancel()
         foregroundRefresh = null
     }
@@ -418,7 +424,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
             }.getOrNull()
             if (authoritative != null) {
                 updatePersisted { it.copy(activeJourney = authoritative) }
-                if (_uiState.value.mode is ScreenMode.Active) updateMode(ScreenMode.Active(authoritative))
+                if (_uiState.value.mode is ScreenMode.Active) replaceMode(ScreenMode.Active(authoritative))
             }
         } catch (error: Throwable) {
             if (error !is CancellationException && showBusy) showError(error)
@@ -483,7 +489,25 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     private suspend fun setBusy(busy: Boolean) = withContext(Dispatchers.Main) { _uiState.update { it.copy(busy = busy) } }
-    private fun updateMode(mode: ScreenMode) = _uiState.update { it.copy(mode = mode, errorModal = null) }
+    private fun updateMode(mode: ScreenMode) {
+        val current = _uiState.value.mode
+        screenHistory.record(current, mode)
+        replaceMode(mode)
+    }
+
+    private fun replaceMode(mode: ScreenMode) = _uiState.update { it.copy(mode = mode, errorModal = null) }
+
+    private fun navigateBack(): Boolean {
+        val current = _uiState.value.mode
+        if (current == ScreenMode.Home || current == ScreenMode.Loading) return false
+        replaceMode(screenHistory.previous() ?: ScreenMode.Home)
+        return true
+    }
+
+    private fun returnToPlanner(transform: (TreinwijzerUiState) -> TreinwijzerUiState = { it }) {
+        screenHistory.previousMatching { it == ScreenMode.Planner }
+        _uiState.update { transform(it).copy(mode = ScreenMode.Planner, errorModal = null) }
+    }
 
     private suspend fun showError(error: Throwable) = withContext(Dispatchers.Main) {
         _uiState.update { state ->
