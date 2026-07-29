@@ -146,7 +146,6 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
         }
         Section(copy.more)
         ListAction(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
-        ListAction(copy.nearest, copy.unavailable, vm::openNearest)
         ListAction(copy.settings, if (state.persisted.language == Language.ENGLISH) copy.english else copy.dutch, vm::openSettings)
     }
 }
