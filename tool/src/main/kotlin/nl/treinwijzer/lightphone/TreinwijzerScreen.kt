@@ -21,7 +21,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -970,23 +973,41 @@ private fun LiveJourneyCard(journey: TripOption, copy: Copy, onClick: () -> Unit
             )
             LightText("→", LightTextVariant.Subheading, color = LightThemeTokens.colors.background, monospace = true)
         }
-        Row(
-            Modifier.fillMaxWidth().padding(top = 0.25f.gridUnitsAsDp()),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            JourneyTimeRange(
-                trip = journey,
-                variant = LightTextVariant.Detail,
-                color = LightThemeTokens.colors.background,
-            )
-            LightText(
-                " · ${tripSummary(journey, copy)}",
-                LightTextVariant.Detail,
-                color = LightThemeTokens.colors.background,
-                maxLines = 1,
-            )
-        }
+        LiveJourneySummary(
+            journey = journey,
+            copy = copy,
+            modifier = Modifier.fillMaxWidth().padding(top = 0.25f.gridUnitsAsDp()),
+        )
     }
+}
+
+@Composable
+private fun LiveJourneySummary(journey: TripOption, copy: Copy, modifier: Modifier = Modifier) {
+    val departureDelay = journey.legs.firstOrNull()?.departureDelayMinutes ?: 0
+    val arrivalDelay = journey.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
+    val text = buildAnnotatedString {
+        append(time(journey.plannedDeparture))
+        if (departureDelay > 0) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("+$departureDelay") }
+        }
+        append(" – ")
+        append(time(journey.plannedArrival))
+        if (arrivalDelay > 0) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("+$arrivalDelay") }
+        }
+        append(" · ${tripSummary(journey, copy)}")
+    }
+    val detailStyle = LightThemeTokens.typography.detail
+    Text(
+        text = text,
+        modifier = modifier,
+        color = LightThemeTokens.colors.background,
+        maxLines = 1,
+        style = detailStyle.copy(
+            fontSize = detailStyle.fontSize.value.designVerticalPxToSp(),
+            lineHeight = detailStyle.lineHeight.value.designVerticalPxToSp(),
+        ),
+    )
 }
 
 @Composable
