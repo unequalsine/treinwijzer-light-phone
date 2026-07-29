@@ -423,7 +423,7 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
         ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             JourneyEndpoint(
-                time = time(trip.departure),
+                time = time(trip.plannedDeparture),
                 delayMinutes = firstLeg?.departureDelayMinutes ?: 0,
                 station = origin,
                 align = TextAlign.Start,
@@ -431,7 +431,7 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
             )
             LightText("→", LightTextVariant.Subheading, monospace = true)
             JourneyEndpoint(
-                time = time(trip.arrival),
+                time = time(trip.plannedArrival),
                 delayMinutes = lastLeg?.arrivalDelayMinutes ?: 0,
                 station = destination,
                 align = TextAlign.End,
@@ -479,30 +479,41 @@ private fun TimeWithDelay(
     Row(
         modifier = modifier,
         horizontalArrangement = if (align == TextAlign.End) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(time, variant, color = color, monospace = true, maxLines = 1)
+        LightText(
+            time,
+            variant,
+            color = color,
+            monospace = true,
+            maxLines = 1,
+            modifier = Modifier.alignByBaseline(),
+        )
         if (delayMinutes > 0) {
-            BoldDelay("+$delayMinutes", color)
+            Spacer(Modifier.width(0.1f.gridUnitsAsDp()))
+            InlineDelay("+$delayMinutes", variant, color, Modifier.alignByBaseline())
         }
     }
 }
 
 @Composable
-private fun BoldDelay(
+private fun InlineDelay(
     text: String,
+    variant: LightTextVariant,
     color: androidx.compose.ui.graphics.Color? = null,
-    prominent: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
-    val fontSize = if (prominent) 24f else 18f
-    val lineHeight = if (prominent) 27f else 20f
+    val fontSize = if (variant == LightTextVariant.Subheading) 30f else 20f
+    val lineHeight = if (variant == LightTextVariant.Subheading) 37.5f else 29f
+    val letterSpacing = if (variant == LightTextVariant.Subheading) 0.9f else 0f
     Text(
         text = text,
+        modifier = modifier,
         color = color ?: LightThemeTokens.colors.content,
         maxLines = 1,
         style = TextStyle(
             fontSize = fontSize.designVerticalPxToSp(),
             lineHeight = lineHeight.designVerticalPxToSp(),
+            letterSpacing = letterSpacing.designVerticalPxToSp(),
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
         ),
@@ -519,9 +530,9 @@ private fun JourneyTimeRange(
     val departureDelay = trip.legs.firstOrNull()?.departureDelayMinutes ?: 0
     val arrivalDelay = trip.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        TimeWithDelay(time(trip.departure), departureDelay, variant, color = color)
-        LightText("–", variant, color = color, monospace = true, maxLines = 1)
-        TimeWithDelay(time(trip.arrival), arrivalDelay, variant, color = color)
+        TimeWithDelay(time(trip.plannedDeparture), departureDelay, variant, color = color)
+        LightText(" – ", variant, color = color, monospace = true, maxLines = 1)
+        TimeWithDelay(time(trip.plannedArrival), arrivalDelay, variant, color = color)
     }
 }
 
@@ -774,8 +785,23 @@ private fun TimelineTime(value: String, delayMinutes: Int = 0, modifier: Modifie
         horizontalAlignment = Alignment.End,
     ) {
         LightText(value, LightTextVariant.ParagraphWide, monospace = true, maxLines = 1)
-        if (delayMinutes > 0) BoldDelay("+$delayMinutes", prominent = true)
+        if (delayMinutes > 0) TimelineDelay("+$delayMinutes")
     }
+}
+
+@Composable
+private fun TimelineDelay(text: String) {
+    Text(
+        text = text,
+        color = LightThemeTokens.colors.content,
+        maxLines = 1,
+        style = TextStyle(
+            fontSize = 24f.designVerticalPxToSp(),
+            lineHeight = 27f.designVerticalPxToSp(),
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+        ),
+    )
 }
 
 @Composable
