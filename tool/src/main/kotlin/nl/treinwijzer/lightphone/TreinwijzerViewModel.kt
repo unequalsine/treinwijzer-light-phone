@@ -23,12 +23,12 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.UUID
 
-enum class StationPurpose { INFO, ORIGIN, DESTINATION, VIA }
+enum class StationPurpose { INFO, DISRUPTIONS, ORIGIN, DESTINATION, VIA }
 
 sealed interface ScreenMode {
     data object Loading : ScreenMode
     data object Home : ScreenMode
-    data class StationInput(val purpose: StationPurpose, val session: Int) : ScreenMode
+    data class StationIndex(val purpose: StationPurpose) : ScreenMode
     data class StationResults(val purpose: StationPurpose, val query: String, val stations: List<Station>) : ScreenMode
     data class Departures(val station: Station, val departures: List<Departure>) : ScreenMode
     data class DepartureDetails(val station: Station, val departure: Departure) : ScreenMode
@@ -62,7 +62,6 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private val _uiState = MutableStateFlow(TreinwijzerUiState())
     val uiState: StateFlow<TreinwijzerUiState> = _uiState.asStateFlow()
     private var foregroundRefresh: Job? = null
-    private var stationInputSession = 0
     private var dateTimeInputSession = 0
     private val handledUpdates = LinkedHashSet<String>()
 
@@ -101,6 +100,11 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         val mode = _uiState.value.mode
         if (mode == ScreenMode.Home || mode == ScreenMode.Loading) return false
         _uiState.update { it.copy(mode = when (mode) {
+            is ScreenMode.StationResults -> ScreenMode.StationIndex(mode.purpose)
+            is ScreenMode.StationIndex -> when (mode.purpose) {
+                StationPurpose.ORIGIN, StationPurpose.DESTINATION, StationPurpose.VIA -> ScreenMode.Planner
+                StationPurpose.INFO, StationPurpose.DISRUPTIONS -> ScreenMode.Home
+            }
             is ScreenMode.DepartureDetails -> ScreenMode.Departures(mode.station, listOf(mode.departure))
             is ScreenMode.DisruptionDetails -> ScreenMode.Home
             is ScreenMode.TripDetails -> mode.request?.let { request ->
@@ -148,19 +152,21 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun openStationSearch(purpose: StationPurpose) {
-        stationInputSession += 1
-        _uiState.update { it.copy(mode = ScreenMode.StationInput(purpose, stationInputSession), errorModal = null) }
+        _uiState.update { it.copy(mode = ScreenMode.StationIndex(purpose), errorModal = null) }
     }
 
-    fun submitStationSearch(query: String, purpose: StationPurpose) {
-        val trimmed = query.trim()
-        if (trimmed.isEmpty()) return
-        launchBusy {
-            val state = _uiState.value.persisted
-            val local = filterStations(state.stations, trimmed)
-            val results = if (local.isNotEmpty()) local else api.searchStations(state.identity(), trimmed, state.language)
-            updateMode(ScreenMode.StationResults(purpose, trimmed, results))
-        }
+    fun selectStationLetter(letter: String, purpose: StationPurpose) {
+        val stations = filterStationsByLetter(_uiState.value.persisted.stations, letter)
+        updateMode(ScreenMode.StationResults(purpose, letter.uppercase(), stations))
+    }
+
+    fun backFromStationPicker(purpose: StationPurpose) {
+        updateMode(
+            when (purpose) {
+                StationPurpose.ORIGIN, StationPurpose.DESTINATION, StationPurpose.VIA -> ScreenMode.Planner
+                StationPurpose.INFO, StationPurpose.DISRUPTIONS -> ScreenMode.Home
+            },
+        )
     }
 
     fun selectStation(station: Station, purpose: StationPurpose) {
@@ -171,6 +177,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         }
         when (purpose) {
             StationPurpose.INFO -> loadDepartures(station)
+            StationPurpose.DISRUPTIONS -> loadDisruptions(station)
             StationPurpose.ORIGIN -> {
                 _uiState.update { it.copy(plannerOrigin = station, mode = ScreenMode.Planner) }
             }
@@ -472,6 +479,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     companion object {
         private val DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        private val STATION_INDEX_PREFIXES = setOf("s", "t", "de", "den", "het")
 
         internal fun filterStations(stations: List<Station>, query: String): List<Station> {
             val terms = normalise(query).split(' ').filter(String::isNotBlank)
@@ -485,6 +493,24 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
                 .sortedWith(compareBy<Station> { !normalise(it.name).startsWith(normalise(query)) }.thenBy { it.name })
                 .take(30)
                 .toList()
+        }
+
+        internal fun filterStationsByLetter(stations: List<Station>, letter: String): List<Station> {
+            val selected = letter.trim().uppercase().firstOrNull()?.toString() ?: return emptyList()
+            return stations
+                .filter { selected in stationIndexLetters(it) }
+                .sortedBy { normalise(it.name) }
+        }
+
+        private fun stationIndexLetters(station: Station): Set<String> = buildSet {
+            (listOf(station.name) + station.synonyms).forEach { name ->
+                val tokens = normalise(name).split(' ').filter(String::isNotBlank)
+                val first = tokens.firstOrNull() ?: return@forEach
+                add(first.first().uppercase())
+                if (first in STATION_INDEX_PREFIXES && tokens.size > 1) {
+                    add(tokens[1].first().uppercase())
+                }
+            }
         }
 
         private fun normalise(value: String): String = java.text.Normalizer.normalize(value.lowercase(), java.text.Normalizer.Form.NFD)

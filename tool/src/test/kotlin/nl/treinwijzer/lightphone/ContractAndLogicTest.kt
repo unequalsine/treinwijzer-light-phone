@@ -45,6 +45,19 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun stationIndexMatchesDutchPrefixesAndSynonyms() {
+        val stations = listOf(
+            Station("GVC", "Den Haag Centraal", "NL"),
+            Station("HT", "'s-Hertogenbosch", "NL", synonyms = listOf("Den Bosch")),
+            Station("ASD", "Amsterdam Centraal", "NL"),
+        )
+
+        assertEquals(listOf("GVC", "HT"), TreinwijzerViewModel.filterStationsByLetter(stations, "H").map(Station::code))
+        assertEquals(listOf("HT"), TreinwijzerViewModel.filterStationsByLetter(stations, "S").map(Station::code))
+        assertEquals(listOf("ASD"), TreinwijzerViewModel.filterStationsByLetter(stations, "a").map(Station::code))
+    }
+
+    @Test
     fun activeJourneyMatchingUsesRouteFallback() {
         val original = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
         val changed = original.copy(id = "new-id", delayMinutes = 9)

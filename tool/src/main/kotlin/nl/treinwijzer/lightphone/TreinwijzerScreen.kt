@@ -66,20 +66,7 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                 when (val mode = state.mode) {
                     ScreenMode.Loading -> MessageScreen(copy.app, copy.loading)
                     ScreenMode.Home -> HomeContent(state, copy, viewModel)
-                    is ScreenMode.StationInput -> {
-                        val input = rememberTextFieldState("")
-                        LightTextInputEditor(
-                            title = copy.searchStation,
-                            state = input,
-                            editorKey = mode.session,
-                            keyboardOptionsFlow = keyboardOptions,
-                            onSubmit = { viewModel.submitStationSearch(it.toString(), mode.purpose) },
-                            onBack = viewModel::home,
-                            submitIcon = LightIcons.SEARCH,
-                            singleLine = true,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                    is ScreenMode.StationIndex -> StationIndexContent(mode, copy, viewModel)
                     is ScreenMode.StationResults -> StationResultsContent(mode, copy, viewModel)
                     is ScreenMode.Departures -> DeparturesContent(mode, state, copy, viewModel)
                     is ScreenMode.DepartureDetails -> DepartureDetailsContent(mode, copy, viewModel)
@@ -129,30 +116,44 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
             Section(copy.live)
             ActionRow(journeyTitle(journey), "${copy.live} · ${journey.status}", vm::openActive)
         }
-        ActionRow(copy.planner, "${copy.origin} · ${copy.destination}", vm::openPlanner)
-        ActionRow(copy.departures, copy.searchStation) { vm.openStationSearch(StationPurpose.INFO) }
+        Section(copy.travel)
+        MenuAction("01", copy.planner, "${copy.origin} · ${copy.destination}", vm::openPlanner)
+        MenuAction("02", copy.departures, copy.chooseStation) { vm.openStationSearch(StationPurpose.INFO) }
+        MenuAction("03", copy.disruptions, copy.chooseStation) { vm.openStationSearch(StationPurpose.DISRUPTIONS) }
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
             state.persisted.favouriteStations.take(4).forEach { station ->
                 ActionRow(station.name, station.code) { vm.loadDepartures(station) }
             }
         }
-        if (state.persisted.recentStations.isNotEmpty()) {
-            Section(copy.recent)
-            state.persisted.recentStations.take(4).forEach { station ->
-                ActionRow(station.name, station.code) { vm.loadDepartures(station) }
-            }
-        }
         Section(copy.more)
         ActionRow(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
-        ActionRow(copy.nearest, copy.nearestUnavailable, vm::openNearest)
-        ActionRow(copy.settings, "${copy.alerts} · ${state.persisted.language.name.lowercase()}", vm::openSettings)
+        ActionRow(copy.nearest, copy.unavailable, vm::openNearest)
+        ActionRow(copy.settings, if (state.persisted.language == Language.ENGLISH) copy.english else copy.dutch, vm::openSettings)
+    }
+}
+
+@Composable
+private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: TreinwijzerViewModel) {
+    ScreenFrame(copy.stationIndex, { vm.backFromStationPicker(mode.purpose) }) {
+        Section(copy.chooseLetter)
+        stationLetters.chunked(3).forEach { rowLetters ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+            ) {
+                rowLetters.forEach { letter ->
+                    LetterButton(letter, Modifier.weight(1f)) { vm.selectStationLetter(letter, mode.purpose) }
+                }
+                repeat(3 - rowLetters.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
     }
 }
 
 @Composable
 private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.searchStation, vm::home) {
+    ScreenFrame(mode.query, { vm.openStationSearch(mode.purpose) }) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
         mode.stations.forEach { station -> ActionRow(station.name, station.code) { vm.selectStation(station, mode.purpose) } }
     }
@@ -162,8 +163,15 @@ private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, v
 private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(mode.station.name, vm::home) {
         val favourite = state.persisted.favouriteStations.any { it.code == mode.station.code }
-        ActionRow(if (favourite) copy.removeFavourite else copy.addFavourite, mode.station.code) { vm.toggleFavouriteStation(mode.station) }
-        ActionRow(copy.disruptions, mode.station.name) { vm.loadDisruptions(mode.station) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            CompactAction(if (favourite) "−" else "+", if (favourite) copy.removeFavourite else copy.addFavourite, Modifier.weight(1f)) {
+                vm.toggleFavouriteStation(mode.station)
+            }
+            CompactAction("!", copy.disruptions, Modifier.weight(1f)) { vm.loadDisruptions(mode.station) }
+        }
         Section(copy.departures)
         if (mode.departures.isEmpty()) Body(copy.noDepartures)
         mode.departures.forEach { departure ->
@@ -216,11 +224,13 @@ private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: Tre
 @Composable
 private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.planner, vm::home) {
-        ActionRow(copy.origin, state.plannerOrigin?.name ?: copy.searchStation) { vm.openStationSearch(StationPurpose.ORIGIN) }
-        ActionRow(copy.destination, state.plannerDestination?.name ?: copy.searchStation) { vm.openStationSearch(StationPurpose.DESTINATION) }
+        Section(copy.route)
+        ActionRow(copy.origin, state.plannerOrigin?.name ?: copy.chooseStation) { vm.openStationSearch(StationPurpose.ORIGIN) }
+        ActionRow(copy.destination, state.plannerDestination?.name ?: copy.chooseStation) { vm.openStationSearch(StationPurpose.DESTINATION) }
         ActionRow(copy.via, state.plannerVia?.name ?: "–") { vm.openStationSearch(StationPurpose.VIA) }
         if (state.plannerVia != null) ActionRow(copy.close, copy.via, vm::clearVia)
         ActionRow("⇅", "${copy.origin} / ${copy.destination}", vm::swapPlannerStations)
+        Section(copy.whenToTravel)
         val preferences = state.persisted.plannerPreferences
         ActionRow(
             if (preferences.timeMode == PlannerTimeMode.DEPARTURE) copy.leaving else copy.arriving,
@@ -229,8 +239,8 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
         )
         ActionRow(copy.chooseTime, copy.dateTimeHelp, vm::openDateTimeInput)
         if (preferences.dateTime != null) ActionRow(copy.now, copy.chooseTime, vm::useCurrentTime)
-        Spacer(Modifier.height(1f.gridUnitsAsDp()))
-        ActionRow(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), vm::planJourney)
+        Spacer(Modifier.height(0.6f.gridUnitsAsDp()))
+        ActionRow(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), prominent = true, onClick = vm::planJourney)
     }
 }
 
@@ -368,23 +378,85 @@ private fun MessageScreen(title: String, message: String, onBack: (() -> Unit)? 
 }
 
 @Composable
-private fun ActionRow(title: String, detail: String = "", onClick: () -> Unit) {
+private fun MenuAction(index: String, title: String, detail: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.3f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.7f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Badge(index, inverted = true)
+        Column(Modifier.weight(1f).padding(horizontal = 0.7f.gridUnitsAsDp())) {
+            LightText(title, LightTextVariant.Subheading, maxLines = 1)
+            LightText(detail, LightTextVariant.Detail, lighten = true, maxLines = 2)
+        }
+        LightText("→", LightTextVariant.Subheading, monospace = true)
+    }
+}
+
+@Composable
+private fun CompactAction(marker: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier = modifier
+            .padding(vertical = 0.3f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightText(marker, LightTextVariant.Subheading, monospace = true)
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            modifier = Modifier.weight(1f).padding(start = 0.45f.gridUnitsAsDp()),
+            maxLines = 2,
+        )
+    }
+}
+
+@Composable
+private fun LetterButton(letter: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .padding(vertical = 0.18f.gridUnitsAsDp())
+            .height(1.15f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(letter, LightTextVariant.Subheading, monospace = true)
+    }
+}
+
+@Composable
+private fun ActionRow(title: String, detail: String = "", onClick: () -> Unit) =
+    ActionRow(title, detail, prominent = false, onClick = onClick)
+
+@Composable
+private fun ActionRow(title: String, detail: String = "", prominent: Boolean, onClick: () -> Unit) {
+    val background = if (prominent) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (prominent) LightThemeTokens.colors.background else LightThemeTokens.colors.content
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 0.35f.gridUnitsAsDp())
+            .background(background)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
             .padding(horizontal = 0.75f.gridUnitsAsDp(), vertical = 0.65f.gridUnitsAsDp()),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(title, LightTextVariant.ParagraphWide, modifier = Modifier.weight(1.15f), maxLines = 2)
+        LightText(title, LightTextVariant.ParagraphWide, color = foreground, modifier = Modifier.weight(1.15f), maxLines = 2)
         if (detail.isNotBlank()) {
             LightText(
                 detail,
                 LightTextVariant.Detail,
-                lighten = true,
+                lighten = !prominent,
+                color = if (prominent) foreground else null,
                 align = TextAlign.End,
                 modifier = Modifier.weight(0.85f),
                 maxLines = 3,
@@ -506,6 +578,7 @@ private fun Section(text: String) {
     )
 }
 
+private val stationLetters = ('A'..'Z').map { it.toString() }
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
 private val compactOffsetFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")
