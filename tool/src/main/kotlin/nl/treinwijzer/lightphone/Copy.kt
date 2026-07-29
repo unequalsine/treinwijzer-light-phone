@@ -47,7 +47,6 @@ class Copy(private val language: Language) {
     val stopTracking get() = value("Stop tracking", "Stop volgen")
     val recovery get() = value("Recovery journeys", "Alternatieve reizen")
     val towards get() = value("Towards", "Richting")
-    val scheduled get() = value("Scheduled", "Gepland")
     val fares get() = value("Fares", "Prijzen")
     val secondClass get() = value("Second class", "Tweede klas")
     val firstClass get() = value("First class", "Eerste klas")

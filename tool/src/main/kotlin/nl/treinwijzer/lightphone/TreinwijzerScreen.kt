@@ -575,7 +575,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
             TimelineStation(
                 label = copy.leaving,
                 station = leg.origin.name,
-                actualTime = leg.actualDeparture,
                 plannedTime = leg.plannedDeparture,
                 platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
                 delayMinutes = leg.departureDelayMinutes,
@@ -590,7 +589,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
             TimelineStation(
                 label = copy.arriving,
                 station = leg.destination.name,
-                actualTime = leg.actualArrival,
                 plannedTime = leg.plannedArrival,
                 platform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform,
                 delayMinutes = leg.arrivalDelayMinutes,
@@ -608,7 +606,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
 private fun TimelineStation(
     label: String,
     station: String,
-    actualTime: String,
     plannedTime: String,
     platform: String?,
     delayMinutes: Int,
@@ -619,7 +616,7 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        TimelineTime(time(actualTime), delayMinutes, Modifier.padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()))
+        TimelineTime(time(plannedTime), delayMinutes, Modifier.padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()))
         TimelineRail(
             connectAbove = connectAbove,
             connectBelow = connectBelow,
@@ -644,14 +641,6 @@ private fun TimelineStation(
                 LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
                 platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
                 if (cancelled) Badge(copy.cancelled, inverted = true)
-            }
-            if (delayMinutes > 0) {
-                LightText(
-                    "${copy.scheduled} ${time(plannedTime)}",
-                    LightTextVariant.Superfine,
-                    lighten = true,
-                    modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
-                )
             }
         }
     }
@@ -697,7 +686,6 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
     TimelineStation(
         label = copy.arriving,
         station = station,
-        actualTime = arrivingLeg.actualArrival,
         plannedTime = arrivingLeg.plannedArrival,
         platform = arrivalPlatform,
         delayMinutes = arrivingLeg.arrivalDelayMinutes,
@@ -716,7 +704,6 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
     TimelineStation(
         label = copy.leaving,
         station = station,
-        actualTime = departingLeg.actualDeparture,
         plannedTime = departingLeg.plannedDeparture,
         platform = departurePlatform,
         delayMinutes = departingLeg.departureDelayMinutes,
