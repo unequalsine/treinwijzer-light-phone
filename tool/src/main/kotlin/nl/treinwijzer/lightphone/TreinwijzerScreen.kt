@@ -32,6 +32,8 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightFullscreenModal
+import com.thelightphone.sdk.ui.LightIcon
+import com.thelightphone.sdk.ui.LightIconConfiguration
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
@@ -127,13 +129,23 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
             LiveJourneyCard(journey, copy, vm::openActive)
         }
         Section(copy.travel)
-        MenuAction("01", copy.planner, "${copy.origin} → ${copy.destination}", prominent = true, onClick = vm::openPlanner)
+        MenuAction(
+            LightIcons.MAP,
+            copy.planner,
+            "${copy.origin} → ${copy.destination}",
+            prominent = true,
+            onClick = vm::openPlanner,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            HomeShortcut("02", copy.departures, Modifier.weight(1f)) { vm.openStationSearch(StationPurpose.INFO) }
-            HomeShortcut("03", copy.disruptions, Modifier.weight(1f)) { vm.openStationSearch(StationPurpose.DISRUPTIONS) }
+            HomeShortcut(LightIcons.DIRECTIONS_TRAIN, copy.departures, Modifier.weight(1f)) {
+                vm.openStationSearch(StationPurpose.INFO)
+            }
+            HomeShortcut(LightIcons.EMERGENCY, copy.disruptions, Modifier.weight(1f)) {
+                vm.openStationSearch(StationPurpose.DISRUPTIONS)
+            }
         }
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
@@ -1160,7 +1172,12 @@ private fun LiveJourneySummary(journey: TripOption, copy: Copy, modifier: Modifi
 }
 
 @Composable
-private fun HomeShortcut(index: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun HomeShortcut(
+    icon: LightIconConfiguration,
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Column(
         modifier
             .padding(vertical = 0.25f.gridUnitsAsDp())
@@ -1171,7 +1188,7 @@ private fun HomeShortcut(index: String, title: String, modifier: Modifier = Modi
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            LightText(index, LightTextVariant.Superfine, monospace = true, lighten = true)
+            HomeMenuIcon(icon)
             LightText("→", LightTextVariant.Paragraph, monospace = true)
         }
         LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
@@ -1611,7 +1628,7 @@ private fun PickerShortcut(
 
 @Composable
 private fun MenuAction(
-    index: String,
+    icon: LightIconConfiguration,
     title: String,
     detail: String,
     prominent: Boolean = false,
@@ -1629,12 +1646,30 @@ private fun MenuAction(
             .padding(0.7f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Badge(index, inverted = !prominent)
+        HomeMenuIcon(icon, framed = prominent)
         Column(Modifier.weight(1f).padding(horizontal = 0.7f.gridUnitsAsDp())) {
             LightText(title, LightTextVariant.Subheading, color = foreground, maxLines = 1)
             LightText(detail, LightTextVariant.Detail, color = foreground, lighten = !prominent, maxLines = 2)
         }
         LightText("→", LightTextVariant.Subheading, color = foreground, monospace = true)
+    }
+}
+
+@Composable
+private fun HomeMenuIcon(icon: LightIconConfiguration, framed: Boolean = false) {
+    if (framed) {
+        Box(
+            Modifier
+                .width(1.65f.gridUnitsAsDp())
+                .height(1.1f.gridUnitsAsDp())
+                .background(LightThemeTokens.colors.background)
+                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
+            contentAlignment = Alignment.Center,
+        ) {
+            LightIcon(icon, size = 0.82f, contentDescription = null)
+        }
+    } else {
+        LightIcon(icon, size = 0.9f, contentDescription = null)
     }
 }
 
