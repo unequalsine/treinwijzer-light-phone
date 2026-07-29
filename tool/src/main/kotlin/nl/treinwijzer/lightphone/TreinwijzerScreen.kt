@@ -694,7 +694,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
     trip.legs.forEachIndexed { index, leg ->
         if (index == 0) {
             TimelineStation(
-                label = copy.leaving,
                 station = leg.origin.name,
                 plannedTime = leg.plannedDeparture,
                 platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
@@ -708,7 +707,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
         val nextLeg = trip.legs.getOrNull(index + 1)
         if (nextLeg == null) {
             TimelineStation(
-                label = copy.arriving,
                 station = leg.destination.name,
                 plannedTime = leg.plannedArrival,
                 platform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform,
@@ -725,7 +723,6 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
 
 @Composable
 private fun TimelineStation(
-    label: String,
     station: String,
     plannedTime: String,
     platform: String?,
@@ -753,15 +750,26 @@ private fun TimelineStation(
                     bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
                 ),
         ) {
-            LightText(station, LightTextVariant.ParagraphWide, maxLines = 2)
             Row(
-                modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(0.3f.gridUnitsAsDp()),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
+                LightText(
+                    station,
+                    LightTextVariant.ParagraphWide,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                )
                 platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
-                if (cancelled) Badge(copy.cancelled, inverted = true)
+            }
+            if (cancelled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 0.3f.gridUnitsAsDp()),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Badge(copy.cancelled, inverted = true)
+                }
             }
         }
     }
@@ -781,19 +789,50 @@ private fun TimelineRide(leg: TripLeg, copy: Copy) {
                     bottom = timelineRideBottomPaddingGridUnits.gridUnitsAsDp(),
                 ),
         ) {
-            TrainPlatformBadges(leg.trainType, leg.trainNumber, null, copy)
-            leg.serviceDestinationName?.takeIf(String::isNotBlank)?.let {
+            TimelineServicePanel(leg, copy)
+            leg.messages.forEach { message ->
                 LightText(
-                    "${copy.towards} $it",
+                    message,
                     LightTextVariant.Detail,
-                    lighten = true,
                     modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()),
-                    maxLines = 2,
+                    maxLines = 3,
                 )
             }
-            leg.messages.forEach { message ->
-                LightText(message, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()), maxLines = 3)
-            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
+    val service = listOfNotNull(
+        leg.trainType.takeIf(String::isNotBlank),
+        leg.trainNumber?.takeIf(String::isNotBlank),
+    ).joinToString(" ")
+    val destination = leg.serviceDestinationName?.takeIf(String::isNotBlank)
+    if (service.isBlank() && destination == null) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(LightThemeTokens.colors.contentSecondary)
+            .padding(horizontal = 0.65f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
+    ) {
+        if (service.isNotBlank()) {
+            LightText(
+                service.uppercase(Locale.ROOT),
+                LightTextVariant.Superfine,
+                color = LightThemeTokens.colors.background,
+                monospace = true,
+                maxLines = 1,
+            )
+        }
+        destination?.let {
+            LightText(
+                "${copy.towards} $it",
+                LightTextVariant.Detail,
+                color = LightThemeTokens.colors.background,
+                modifier = if (service.isBlank()) Modifier else Modifier.padding(top = 0.2f.gridUnitsAsDp()),
+                maxLines = 2,
+            )
         }
     }
 }
@@ -805,7 +844,6 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
     val departurePlatform = departingLeg.actualDeparturePlatform ?: departingLeg.plannedDeparturePlatform
 
     TimelineStation(
-        label = copy.arriving,
         station = station,
         plannedTime = arrivingLeg.plannedArrival,
         platform = arrivalPlatform,
@@ -823,7 +861,6 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         copy = copy,
     )
     TimelineStation(
-        label = copy.leaving,
         station = station,
         plannedTime = departingLeg.plannedDeparture,
         platform = departurePlatform,
@@ -1765,7 +1802,7 @@ private const val timelineStationTopPaddingGridUnits = 0.45f
 private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
-private const val timelineTransferGapGridUnits = 0.45f
+private const val timelineTransferGapGridUnits = 0.9f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
 private val compactOffsetFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")
