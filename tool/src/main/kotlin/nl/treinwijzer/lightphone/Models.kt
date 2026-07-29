@@ -60,7 +60,10 @@ data class Disruption(
     val start: String? = null,
     val end: String? = null,
     val stationCodes: List<String> = emptyList(),
-)
+) {
+    val isMaintenance: Boolean
+        get() = type.trim().equals("MAINTENANCE", ignoreCase = true)
+}
 
 @Serializable
 data class TripLeg(

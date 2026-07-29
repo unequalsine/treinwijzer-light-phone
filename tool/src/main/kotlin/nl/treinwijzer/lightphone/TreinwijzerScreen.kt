@@ -260,15 +260,28 @@ private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Cop
 @Composable
 private fun DisruptionsContent(mode: ScreenMode.Disruptions, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.disruptions, vm::home) {
+        val currentDisruptions = mode.disruptions.filterNot(Disruption::isMaintenance)
+        val plannedMaintenance = mode.disruptions.filter(Disruption::isMaintenance)
         if (mode.disruptions.isEmpty()) Body(copy.noDisruptions)
-        mode.disruptions.forEach { disruption -> DisruptionCard(disruption) { vm.showDisruption(disruption) } }
+        if (currentDisruptions.isNotEmpty()) {
+            Section(copy.currentDisruptions)
+            currentDisruptions.forEach { disruption ->
+                DisruptionCard(disruption, copy) { vm.showDisruption(disruption) }
+            }
+        }
+        if (plannedMaintenance.isNotEmpty()) {
+            Section(copy.plannedMaintenance)
+            plannedMaintenance.forEach { disruption ->
+                DisruptionCard(disruption, copy) { vm.showDisruption(disruption) }
+            }
+        }
     }
 }
 
 @Composable
 private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: TreinwijzerViewModel) {
-    ScreenFrame(copy.disruptions, vm::home) {
-        DisruptionHero(disruption)
+    ScreenFrame(if (disruption.isMaintenance) copy.plannedMaintenance else copy.disruption, vm::home) {
+        DisruptionHero(disruption, copy)
         disruption.trajectories.forEach { Notice(it) }
         val situation = listOfNotNull(disruption.cause, disruption.situation, disruption.description)
         if (situation.isNotEmpty()) {
@@ -360,7 +373,7 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
         if (trip.disruptions.isNotEmpty()) {
             Section(copy.disruptions)
             trip.disruptions.forEach { disruption ->
-                ActionRow(disruption.title, disruptionCategory(disruption).orEmpty()) {
+                ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
                     vm.showDisruption(disruption)
                 }
             }
@@ -381,7 +394,11 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
         JourneyTimeline(journey, copy)
         if (journey.disruptions.isNotEmpty()) {
             Section(copy.disruptions)
-            journey.disruptions.forEach { Body(it.title) }
+            journey.disruptions.forEach { disruption ->
+                ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
+                    vm.showDisruption(disruption)
+                }
+            }
         }
         if (journey.legs.size > 1) {
             Section(copy.more)
@@ -1118,7 +1135,7 @@ private fun DepartureStopRow(stop: DepartureStop, first: Boolean, last: Boolean,
 }
 
 @Composable
-private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
+private fun DisruptionCard(disruption: Disruption, copy: Copy, onClick: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -1132,11 +1149,16 @@ private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            disruptionCategory(disruption)?.let { Badge(it, inverted = true) }
-                ?: Spacer(Modifier.weight(1f))
+            Badge(
+                if (disruption.isMaintenance) copy.planned else copy.disruption,
+                inverted = !disruption.isMaintenance,
+            )
             LightText("→", LightTextVariant.Paragraph, monospace = true)
         }
         LightText(disruption.title, LightTextVariant.ParagraphWide, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()), maxLines = 3)
+        disruption.period?.takeIf(String::isNotBlank)?.let {
+            LightText(it, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
+        }
         disruption.trajectories.firstOrNull()?.let {
             LightText(it, LightTextVariant.Detail, lighten = true, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
         }
@@ -1144,35 +1166,36 @@ private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DisruptionHero(disruption: Disruption) {
-    val category = disruptionCategory(disruption)
-    Column(Modifier.fillMaxWidth().background(LightThemeTokens.colors.content).padding(0.8f.gridUnitsAsDp())) {
-        category?.let {
-            LightText(it.uppercase(Locale.ROOT), LightTextVariant.Superfine, color = LightThemeTokens.colors.background, monospace = true)
-        }
+private fun DisruptionHero(disruption: Disruption, copy: Copy) {
+    val inverted = !disruption.isMaintenance
+    val background = if (inverted) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (inverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(background)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(0.8f.gridUnitsAsDp()),
+    ) {
+        Badge(
+            if (disruption.isMaintenance) copy.planned else copy.disruption,
+            inverted = disruption.isMaintenance,
+        )
         LightText(
             disruption.title,
             LightTextVariant.Subheading,
-            color = LightThemeTokens.colors.background,
-            modifier = if (category != null) Modifier.padding(top = 0.3f.gridUnitsAsDp()) else Modifier,
+            color = foreground,
+            modifier = Modifier.padding(top = 0.45f.gridUnitsAsDp()),
             maxLines = 4,
         )
+        disruption.period?.takeIf(String::isNotBlank)?.let {
+            LightText(it, LightTextVariant.Detail, color = foreground, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
+        }
     }
 }
 
-internal fun disruptionCategory(disruption: Disruption): String? {
-    val type = disruption.type.trim()
-    if (type.isBlank() || type.equals("unknown", ignoreCase = true)) return null
-
-    return type
-        .replace(Regex("([a-z])([A-Z])"), "$1 $2")
-        .replace('_', ' ')
-        .replace('-', ' ')
-        .lowercase(Locale.ROOT)
-        .replaceFirstChar { character ->
-            if (character.isLowerCase()) character.titlecase(Locale.ROOT) else character.toString()
-        }
-}
+internal fun disruptionCategory(disruption: Disruption, copy: Copy): String =
+    if (disruption.isMaintenance) copy.plannedMaintenance else copy.disruption
 
 @Composable
 private fun Notice(text: String) {

@@ -131,17 +131,22 @@ class ContractAndLogicTest {
     }
 
     @Test
-    fun disruptionCategoriesNeverExposeRawSeverityCodes() {
-        val disruption = Disruption(
+    fun distinguishesPlannedMaintenanceFromUnexpectedDisruptions() {
+        val maintenance = Disruption(
             id = "disruption-1",
             title = "Engineering works",
-            type = "ENGINEERING_WORKS",
+            type = "MAINTENANCE",
             severity = "2",
         )
+        val disruption = maintenance.copy(type = "DISRUPTION", severity = "1")
 
-        assertEquals("Engineering works", disruptionCategory(disruption))
-        assertEquals(null, disruptionCategory(disruption.copy(type = "unknown", severity = "1")))
-        assertEquals(null, disruptionCategory(disruption.copy(type = "", severity = "UNKNOWN")))
+        assertTrue(maintenance.isMaintenance)
+        assertTrue(!disruption.isMaintenance)
+        assertEquals("Planned maintenance", disruptionCategory(maintenance, Copy(Language.ENGLISH)))
+        assertEquals("Geplande werkzaamheden", disruptionCategory(maintenance, Copy(Language.DUTCH)))
+        assertEquals("Disruption", disruptionCategory(disruption, Copy(Language.ENGLISH)))
+        assertEquals("Storing", disruptionCategory(disruption, Copy(Language.DUTCH)))
+        assertEquals("Disruption", disruptionCategory(disruption.copy(type = "unknown"), Copy(Language.ENGLISH)))
     }
 
     @Test
