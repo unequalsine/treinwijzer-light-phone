@@ -813,14 +813,14 @@ private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(LightThemeTokens.colors.contentSecondary)
+            .background(LightThemeTokens.colors.contentSecondary.copy(alpha = 0.28f))
             .padding(horizontal = 0.65f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
     ) {
         if (service.isNotBlank()) {
             LightText(
                 service.uppercase(Locale.ROOT),
                 LightTextVariant.Superfine,
-                color = LightThemeTokens.colors.background,
+                color = LightThemeTokens.colors.content,
                 monospace = true,
                 maxLines = 1,
             )
@@ -829,7 +829,7 @@ private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
             LightText(
                 "${copy.towards} $it",
                 LightTextVariant.Detail,
-                color = LightThemeTokens.colors.background,
+                color = LightThemeTokens.colors.content,
                 modifier = if (service.isBlank()) Modifier else Modifier.padding(top = 0.2f.gridUnitsAsDp()),
                 maxLines = 2,
             )
