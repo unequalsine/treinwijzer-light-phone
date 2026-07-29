@@ -1,6 +1,7 @@
 package nl.treinwijzer.lightphone
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import com.thelightphone.sdk.ui.LightThemeController
 import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.LightTopBar
 import com.thelightphone.sdk.ui.LightTopBarCenter
+import com.thelightphone.sdk.ui.designVerticalPxToDp
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
 import java.time.Instant
@@ -124,13 +126,11 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
 private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.app) {
         state.persisted.activeJourney?.let { journey ->
-            Section(copy.activeJourney)
+            Section(copy.live)
             ActionRow(journeyTitle(journey), "${copy.live} · ${journey.status}", vm::openActive)
         }
-        Section(copy.planner)
         ActionRow(copy.planner, "${copy.origin} · ${copy.destination}", vm::openPlanner)
-        Section(copy.departures)
-        ActionRow(copy.searchStation, copy.departures) { vm.openStationSearch(StationPurpose.INFO) }
+        ActionRow(copy.departures, copy.searchStation) { vm.openStationSearch(StationPurpose.INFO) }
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
             state.persisted.favouriteStations.take(4).forEach { station ->
@@ -143,7 +143,7 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
                 ActionRow(station.name, station.code) { vm.loadDepartures(station) }
             }
         }
-        Section("")
+        Section(copy.more)
         ActionRow(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
         ActionRow(copy.nearest, copy.nearestUnavailable, vm::openNearest)
         ActionRow(copy.settings, "${copy.alerts} · ${state.persisted.language.name.lowercase()}", vm::openSettings)
@@ -167,10 +167,7 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
         Section(copy.departures)
         if (mode.departures.isEmpty()) Body(copy.noDepartures)
         mode.departures.forEach { departure ->
-            ActionRow(
-                "${time(departure.actualDateTime)}  ${departure.direction}",
-                departureSummary(departure, copy),
-            ) { vm.loadDepartureDetails(mode.station, departure) }
+            DepartureCard(departure, copy) { vm.loadDepartureDetails(mode.station, departure) }
         }
     }
 }
@@ -179,9 +176,14 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
 private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Copy, vm: TreinwijzerViewModel) {
     val departure = mode.departure
     ScreenFrame(departure.direction, vm::home) {
-        Detail("${departure.trainType} ${departure.trainNumber.orEmpty()}", departureSummary(departure, copy))
+        TrainPlatformBadges(
+            trainType = departure.trainType,
+            trainNumber = departure.trainNumber,
+            platform = departure.actualTrack ?: departure.plannedTrack,
+            copy = copy,
+        )
+        departureStatus(departure, copy)?.let { Body(it) }
         Detail(copy.leaving, dateTime(departure.actualDateTime))
-        Detail(copy.platform, departure.actualTrack ?: departure.plannedTrack ?: "–")
         if (departure.routeStations.isNotEmpty()) Detail(copy.destination, departure.routeStations.joinToString(" · "))
         departure.stops.forEach { stop ->
             Detail(stop.name, listOfNotNull(stop.actualDeparture?.let(::time), stop.actualPlatform?.let { "${copy.platform} $it" }).joinToString(" · "))
@@ -254,9 +256,16 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
         trip.firstClassPrice?.let { Detail("${copy.price} 1", price(it)) }
         trip.supplementPrice?.let { Detail("Supplement", price(it)) }
         trip.legs.forEachIndexed { index, leg ->
-            Section("${index + 1}. ${leg.trainType} ${leg.trainNumber.orEmpty()}")
-            Detail("${leg.origin.name} → ${leg.destination.name}", "${time(leg.actualDeparture)}–${time(leg.actualArrival)}")
-            Detail(copy.platform, "${leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform ?: "–"} → ${leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform ?: "–"}")
+            Section("${index + 1}. ${leg.origin.name} → ${leg.destination.name}")
+            TrainPlatformBadges(
+                trainType = leg.trainType,
+                trainNumber = leg.trainNumber,
+                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
+                copy = copy,
+            )
+            Detail("${time(leg.actualDeparture)}–${time(leg.actualArrival)}", leg.serviceDestinationName.orEmpty())
+            val arrivalPlatform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform
+            if (!arrivalPlatform.isNullOrBlank()) Detail("${copy.arriving} · ${copy.platform}", arrivalPlatform)
             leg.transferMinutesAfterLeg?.let { Detail(copy.transfer, "$it ${copy.minutes}") }
             leg.messages.forEach { Body(it) }
         }
@@ -274,8 +283,14 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
         Heading(journeyTitle(journey))
         Detail("${time(journey.departure)}–${time(journey.arrival)}", tripSummary(journey, copy))
         journey.legs.forEach { leg ->
-            Detail("${leg.trainType} ${leg.trainNumber.orEmpty()}", "${leg.origin.name} → ${leg.destination.name}")
-            Detail(copy.platform, leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform ?: "–")
+            Section("${leg.origin.name} → ${leg.destination.name}")
+            TrainPlatformBadges(
+                trainType = leg.trainType,
+                trainNumber = leg.trainNumber,
+                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
+                copy = copy,
+            )
+            Detail("${time(leg.actualDeparture)}–${time(leg.actualArrival)}", leg.serviceDestinationName.orEmpty())
             if (leg.departureDelayMinutes > 0) Body("+${leg.departureDelayMinutes} ${copy.minutes}")
             leg.messages.forEach { Body(it) }
         }
@@ -322,8 +337,18 @@ private fun ScreenFrame(title: String, onBack: (() -> Unit)? = null, content: @C
             leftButton = onBack?.let { LightBarButton.LightIcon(LightIcons.BACK, onClick = it) },
             center = LightTopBarCenter.Text(title),
         )
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(2f.designVerticalPxToDp())
+                .background(LightThemeTokens.colors.content),
+        )
         LightScrollView(Modifier.weight(1f).fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 1f.gridUnitsAsDp())) { content() }
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 1f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
+            ) { content() }
         }
     }
 }
@@ -347,24 +372,138 @@ private fun ActionRow(title: String, detail: String = "", onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
-            .padding(vertical = 0.8f.gridUnitsAsDp()),
+            .padding(horizontal = 0.75f.gridUnitsAsDp(), vertical = 0.65f.gridUnitsAsDp()),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(title, LightTextVariant.Copy, modifier = Modifier.weight(1f), maxLines = 2)
-        if (detail.isNotBlank()) LightText(detail, LightTextVariant.Fine, lighten = true, align = TextAlign.End, modifier = Modifier.weight(1f), maxLines = 3)
+        LightText(title, LightTextVariant.ParagraphWide, modifier = Modifier.weight(1.15f), maxLines = 2)
+        if (detail.isNotBlank()) {
+            LightText(
+                detail,
+                LightTextVariant.Detail,
+                lighten = true,
+                align = TextAlign.End,
+                modifier = Modifier.weight(0.85f),
+                maxLines = 3,
+            )
+        }
     }
 }
 
-@Composable private fun Section(text: String) {
-    if (text.isNotBlank()) LightText(text, LightTextVariant.Subheading, modifier = Modifier.padding(top = 1.3f.gridUnitsAsDp(), bottom = 0.4f.gridUnitsAsDp()))
+@Composable
+private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.75f.gridUnitsAsDp(), vertical = 0.65f.gridUnitsAsDp()),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LightText(time(departure.actualDateTime), LightTextVariant.Subheading)
+            LightText(
+                departure.direction,
+                LightTextVariant.Copy,
+                align = TextAlign.End,
+                modifier = Modifier.weight(1f).padding(start = 0.6f.gridUnitsAsDp()),
+                maxLines = 2,
+            )
+        }
+        TrainPlatformBadges(
+            trainType = departure.trainType,
+            trainNumber = departure.trainNumber,
+            platform = departure.actualTrack ?: departure.plannedTrack,
+            copy = copy,
+        )
+        departureStatus(departure, copy)?.let { status ->
+            LightText(
+                status,
+                LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()),
+            )
+        }
+    }
 }
-@Composable private fun Heading(text: String) = LightText(text, LightTextVariant.Heading, modifier = Modifier.padding(vertical = 1f.gridUnitsAsDp()))
-@Composable private fun Body(text: String) = LightText(text, LightTextVariant.Copy, modifier = Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
-@Composable private fun Detail(title: String, detail: String) = Column(Modifier.fillMaxWidth().padding(vertical = 0.6f.gridUnitsAsDp())) {
+
+@Composable
+private fun TrainPlatformBadges(trainType: String, trainNumber: String?, platform: String?, copy: Copy) {
+    Row(
+        modifier = Modifier.padding(top = 0.45f.gridUnitsAsDp()),
+        horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Badge(listOfNotNull(trainType.takeIf(String::isNotBlank), trainNumber?.takeIf(String::isNotBlank)).joinToString(" "))
+        platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
+    }
+}
+
+@Composable
+private fun Badge(text: String, inverted: Boolean = false) {
+    val background = if (inverted) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (inverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content
+    Box(
+        Modifier
+            .background(background)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(horizontal = 0.45f.gridUnitsAsDp(), vertical = 0.2f.gridUnitsAsDp()),
+    ) {
+        LightText(
+            text = text.uppercase(Locale.ROOT),
+            variant = LightTextVariant.Superfine,
+            color = foreground,
+            monospace = true,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun Section(text: String) {
+    if (text.isBlank()) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 1.2f.gridUnitsAsDp(), bottom = 0.3f.gridUnitsAsDp()),
+    ) {
+        LightText(
+            text = text.uppercase(Locale.ROOT),
+            variant = LightTextVariant.Superfine,
+            monospace = true,
+            modifier = Modifier.padding(bottom = 0.35f.gridUnitsAsDp()),
+        )
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(2f.designVerticalPxToDp())
+                .background(LightThemeTokens.colors.content),
+        )
+    }
+}
+@Composable private fun Heading(text: String) = LightText(text, LightTextVariant.Subheading, modifier = Modifier.padding(vertical = 0.8f.gridUnitsAsDp()))
+@Composable private fun Body(text: String) = LightText(text, LightTextVariant.Paragraph, modifier = Modifier.padding(vertical = 0.6f.gridUnitsAsDp()))
+@Composable private fun Detail(title: String, detail: String) = Column(
+    Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 0.5f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
+) {
     LightText(title, LightTextVariant.Copy)
-    if (detail.isNotBlank()) LightText(detail, LightTextVariant.Fine, lighten = true)
+    if (detail.isNotBlank()) LightText(detail, LightTextVariant.Detail, lighten = true)
+    Spacer(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 0.45f.gridUnitsAsDp())
+            .height(1f.designVerticalPxToDp())
+            .background(LightThemeTokens.colors.contentSecondary),
+    )
 }
 
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -385,8 +524,8 @@ private fun tripSummary(trip: TripOption, copy: Copy): String {
     val delay = if (trip.delayMinutes > 0) " · +${trip.delayMinutes}" else ""
     return "${trip.durationMinutes} ${copy.minutes} · $transferText$delay"
 }
-private fun departureSummary(departure: Departure, copy: Copy): String = when {
+private fun departureStatus(departure: Departure, copy: Copy): String? = when {
     departure.cancelled -> copy.cancelled
-    departure.delayMinutes > 0 -> "${departure.trainType} · +${departure.delayMinutes} · ${copy.platform} ${departure.actualTrack ?: departure.plannedTrack ?: "–"}"
-    else -> "${departure.trainType} · ${copy.platform} ${departure.actualTrack ?: departure.plannedTrack ?: "–"}"
+    departure.delayMinutes > 0 -> "+${departure.delayMinutes} ${copy.minutes}"
+    else -> null
 }

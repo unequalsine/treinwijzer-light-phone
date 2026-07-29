@@ -41,6 +41,7 @@ class Copy(private val language: Language) {
     val recent get() = value("Recent", "Recent")
     val favouriteStations get() = value("Favourite stations", "Favoriete stations")
     val favouriteRoutes get() = value("Favourite routes", "Favoriete routes")
+    val more get() = value("More", "Meer")
     val alerts get() = value("Journey alerts", "Reismeldingen")
     val guidance get() = value("Transfer guidance", "Overstapbegeleiding")
     val english get() = "English"
