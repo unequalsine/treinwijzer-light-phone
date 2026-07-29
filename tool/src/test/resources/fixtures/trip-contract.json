@@ -1,0 +1,40 @@
+{
+  "id": "journey-contract-1",
+  "routeId": "route-contract-1",
+  "departure": "2026-07-29T12:05:00.000Z",
+  "plannedDeparture": "2026-07-29T12:00:00.000Z",
+  "arrival": "2026-07-29T12:55:00.000Z",
+  "plannedArrival": "2026-07-29T12:50:00.000Z",
+  "durationMinutes": 55,
+  "transfers": 0,
+  "status": "delayed",
+  "delayMinutes": 5,
+  "legs": [
+    {
+      "id": "leg-contract-1",
+      "origin": { "code": "UT", "name": "Utrecht Centraal" },
+      "destination": { "code": "ASD", "name": "Amsterdam Centraal" },
+      "routeStations": ["Amsterdam Amstel"],
+      "stops": [],
+      "trainType": "Intercity",
+      "trainNumber": "3056",
+      "serviceDestinationName": "Den Helder",
+      "plannedDeparture": "2026-07-29T12:00:00.000Z",
+      "actualDeparture": "2026-07-29T12:05:00.000Z",
+      "plannedArrival": "2026-07-29T12:50:00.000Z",
+      "actualArrival": "2026-07-29T12:55:00.000Z",
+      "plannedDeparturePlatform": "5",
+      "actualDeparturePlatform": "7",
+      "plannedArrivalPlatform": "8a",
+      "actualArrivalPlatform": "8a",
+      "departureDelayMinutes": 5,
+      "arrivalDelayMinutes": 5,
+      "cancelled": false,
+      "messages": ["Platform changed"],
+      "supplements": [],
+      "transferMinutesAfterLeg": null
+    }
+  ],
+  "disruptions": [],
+  "price": { "amountEuroCents": 920, "currency": "EUR" }
+}

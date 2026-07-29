@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -9,6 +11,15 @@ plugins {
 
 android {
     compileSdk = rootProject.ext["compileSdk"] as Int
+
+    val localProps = Properties().apply {
+        rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    val workerBaseUrl = localProps.getProperty(
+        "treinwijzer.workerBaseUrl",
+        "https://treinwijzer-light-dev.unequalsine.workers.dev",
+    )
+    val workerAccessToken = localProps.getProperty("treinwijzer.workerAccessToken", "")
 
     signingConfigs {
         create("lightsdkDev") {
@@ -26,6 +37,12 @@ android {
         targetSdk = rootProject.ext["targetSdk"] as Int
 
         manifestPlaceholders["sdkVersion"] = property("sdkVersion") as String
+        buildConfigField("String", "WORKER_BASE_URL", "\"$workerBaseUrl\"")
+        buildConfigField("String", "WORKER_ACCESS_TOKEN", "\"$workerAccessToken\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

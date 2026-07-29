@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "journey-alert",
+  "reason": "journey-updated",
+  "journeyId": "journey-contract-1",
+  "updateId": "00000000-0000-4000-8000-000000000001",
+  "workerPolledAt": "2026-07-29T12:00:00.000Z",
+  "alert": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "title": "Platform changed",
+    "body": "Departure is now from platform 7.",
+    "createdAt": "2026-07-29T12:00:01.000Z"
+  }
+}

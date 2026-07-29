@@ -1,3 +1,44 @@
+# Treinwijzer for Light Phone III
+
+Treinwijzer is a Light-native train planner and live journey companion for Dutch NS travel. This public repository is a fork of the official Light SDK. Only the `tool/` module contains Treinwijzer product code; SDK code remains pinned and unmodified so upstream updates can be reviewed cleanly.
+
+- Tool id: `nl.treinwijzer.lightphone`
+- Starting Light SDK revision: `ddf33e40d04306b86dfbbe7e9dc64fb19e9fb525`
+- Upstream: `https://github.com/lightphone/light-sdk`
+- Worker source of truth: `https://github.com/unequalsine/treinwijzer`
+
+Implemented capabilities include station search, departures and departure details, disruptions, advanced journey planning, prices, transfer details, recovery journeys, favourites, recents, preferences, English and Dutch copy, persisted active journeys, foreground refresh, UnifiedPush-triggered refresh and a recoverable alert inbox. Everything in the Light tool is free. There is no paywall, StoreKit integration or Apple-only widget surface.
+
+The current SDK does not expose tool location access or closed-tool visible notifications. Treinwijzer represents those limits honestly; see [SDK gaps](docs/sdk-gaps.md).
+
+## Local configuration
+
+Create ignored `local.properties` entries:
+
+```properties
+sdk.dir=/path/to/Android/sdk
+gpr.user=your_github_user
+gpr.key=your_github_token_with_read_packages
+treinwijzer.workerBaseUrl=https://your-light-dev-worker.example
+treinwijzer.workerAccessToken=your-development-app-token
+```
+
+Never commit an NS key, Worker token, endpoint, tunnel URL or GitHub token. The Worker access token is compiled into local development APKs and must be treated as a development credential.
+
+## Build and test
+
+The pinned SDK currently needs a Java 17 toolchain:
+
+```sh
+./gradlew :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug
+```
+
+Simulator setup and reusable commands are documented in [the Treinwijzer simulator guide](docs/simulator.md). Hardware/distribution builds must change `serverPackage` in `tool/lighttool.toml` from `com.thelightphone.sdk.emulator` to `com.lightos`.
+
+## Official Light SDK documentation
+
+The upstream SDK documentation is retained below.
+
 # light-sdk
 or: a tool for building Tools
 
