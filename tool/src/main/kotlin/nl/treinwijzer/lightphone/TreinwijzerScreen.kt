@@ -123,7 +123,7 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
             state.persisted.favouriteStations.take(4).forEach { station ->
-                ActionRow(station.name, station.code) { vm.loadDepartures(station) }
+                ActionRow(station.name) { vm.loadDepartures(station) }
             }
         }
         Section(copy.more)
@@ -155,7 +155,7 @@ private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: T
 private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(mode.query, { vm.openStationSearch(mode.purpose) }) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
-        mode.stations.forEach { station -> ActionRow(station.name, station.code) { vm.selectStation(station, mode.purpose) } }
+        mode.stations.forEach { station -> ActionRow(station.name) { vm.selectStation(station, mode.purpose) } }
     }
 }
 
@@ -315,7 +315,7 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
 private fun FavouritesContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.favourites, vm::home) {
         Section(copy.favouriteStations)
-        state.persisted.favouriteStations.forEach { station -> ActionRow(station.name, station.code) { vm.loadDepartures(station) } }
+        state.persisted.favouriteStations.forEach { station -> ActionRow(station.name) { vm.loadDepartures(station) } }
         Section(copy.favouriteRoutes)
         state.persisted.favouriteRoutes.forEach { route ->
             ActionRow(route.name, route.via?.let { "${copy.via} ${it.name}" }.orEmpty()) { vm.useRoute(route) }
