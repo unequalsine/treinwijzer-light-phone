@@ -92,7 +92,12 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
                     is ScreenMode.DisruptionDetails -> DisruptionDetailsContent(mode.disruption, copy, viewModel)
                     ScreenMode.Planner -> PlannerContent(state, copy, viewModel)
-                    is ScreenMode.DateTimeInput -> DateTimePickerContent(mode.selection, copy, viewModel)
+                    is ScreenMode.DateTimeInput -> DateTimePickerContent(
+                        mode.selection,
+                        mode.timeMode,
+                        copy,
+                        viewModel,
+                    )
                     is ScreenMode.Trips -> TripsContent(mode, copy, viewModel)
                     is ScreenMode.TripDetails -> TripDetailsContent(mode, state, copy, viewModel)
                     ScreenMode.Favourites -> FavouritesContent(state, copy, viewModel)
@@ -162,6 +167,12 @@ private fun StationPickerContent(
             }
             PickerShortcut(copy.nearestShort, Modifier.weight(1f)) {
                 vm.openStationNearest(mode.purpose)
+            }
+        }
+        if (mode.purpose == StationPurpose.VIA && state.plannerVia != null) {
+            ActionRow(copy.removeVia, state.plannerVia.name) {
+                vm.clearVia()
+                vm.back()
             }
         }
         Section(copy.favouriteStations)
@@ -300,47 +311,34 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
         Section(copy.route)
         PlannerRouteCard(state, copy, vm)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = 0.45f.gridUnitsAsDp()),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            UtilityAction("⇅", copy.swap, Modifier.weight(1f), vm::swapPlannerStations)
-            if (state.plannerVia != null) {
-                UtilityAction("×", copy.removeVia, Modifier.weight(1f), vm::clearVia)
-            }
+            PlannerAction(copy.swap, prominent = false, modifier = Modifier.weight(1f), onClick = vm::swapPlannerStations)
+            PlannerAction(copy.time, prominent = false, modifier = Modifier.weight(1f), onClick = vm::openDateTimeInput)
+            PlannerAction(copy.plan, prominent = true, modifier = Modifier.weight(1f), onClick = vm::planJourney)
         }
-        Section(copy.whenToTravel)
-        val preferences = state.persisted.plannerPreferences
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
-        ) {
-            ChoiceCard(
-                if (preferences.timeMode == PlannerTimeMode.DEPARTURE) copy.leaving else copy.arriving,
-                copy.whenToTravel,
-                Modifier.weight(1f),
-                vm::togglePlannerTimeMode,
-            )
-            ChoiceCard(
-                preferences.dateTime?.let(::dateTime) ?: copy.now,
-                copy.chooseTime,
-                Modifier.weight(1f),
-                vm::openDateTimeInput,
-            )
-        }
-        if (preferences.dateTime != null) ListAction(copy.now, copy.chooseTime, vm::useCurrentTime)
-        PrimaryAction(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), Modifier.fillMaxWidth(), vm::planJourney)
     }
 }
 
 @Composable
 private fun DateTimePickerContent(
     selection: PlannerDateTimeSelection,
+    timeMode: PlannerTimeMode,
     copy: Copy,
     vm: TreinwijzerViewModel,
 ) {
     val selectedDay = if (selection.dayOffset == 0) copy.today else copy.tomorrow
     val selectedTime = "%02d:%02d".format(Locale.ROOT, selection.hour, selection.minute)
     ScreenFrame(copy.chooseTime, vm::back) {
+        Section(copy.planBy)
+        SegmentedChoices(
+            left = copy.leaving,
+            right = copy.arriving,
+            leftSelected = timeMode == PlannerTimeMode.DEPARTURE,
+            onLeft = { vm.setPlannerTimeMode(PlannerTimeMode.DEPARTURE) },
+            onRight = { vm.setPlannerTimeMode(PlannerTimeMode.ARRIVAL) },
+        )
         Section(copy.day)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -376,12 +374,19 @@ private fun DateTimePickerContent(
                 onIncrease = { vm.adjustPlannerTime(5) },
             )
         }
-        PrimaryAction(
-            title = copy.useTime,
-            detail = "$selectedDay · $selectedTime",
+        LightText(
+            "$selectedDay · $selectedTime",
+            LightTextVariant.Detail,
+            align = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 0.65f.gridUnitsAsDp()),
-            onClick = vm::confirmPlannerDateTime,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 0.2f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            PlannerAction(copy.useNow, prominent = false, modifier = Modifier.weight(1f), onClick = vm::useCurrentTime)
+            PlannerAction(copy.useTime, prominent = true, modifier = Modifier.weight(1f), onClick = vm::confirmPlannerDateTime)
+        }
     }
 }
 
@@ -1202,18 +1207,29 @@ private fun PlannerField(marker: String, label: String, value: String, divider: 
 }
 
 @Composable
-private fun ChoiceCard(title: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(
+private fun PlannerAction(
+    title: String,
+    prominent: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val background = if (prominent) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (prominent) LightThemeTokens.colors.background else LightThemeTokens.colors.content
+    Box(
         modifier
-            .padding(vertical = 0.25f.gridUnitsAsDp())
-            .height(2.85f.gridUnitsAsDp())
+            .height(1.8f.gridUnitsAsDp())
+            .background(background)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .lightClickable(onClick = onClick)
-            .padding(0.55f.gridUnitsAsDp()),
-        verticalArrangement = Arrangement.SpaceBetween,
+            .lightClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true, maxLines = 1)
-        LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            color = foreground,
+            align = TextAlign.Center,
+            maxLines = 1,
+        )
     }
 }
 
@@ -1768,7 +1784,6 @@ internal fun time(value: String): String = parsedInstant(value)?.atZone(amsterda
 internal fun dateTime(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(dateFormatter) ?: value
 private fun price(value: JourneyPrice): String = String.format(Locale.UK, "€ %.2f", value.amountEuroCents / 100.0)
 private fun journeyTitle(journey: TripOption): String = "${journey.legs.firstOrNull()?.origin?.name.orEmpty()} → ${journey.legs.lastOrNull()?.destination?.name.orEmpty()}"
-private fun routeSummary(from: Station?, to: Station?): String = listOfNotNull(from?.name, to?.name).joinToString(" → ")
 private fun tripSummary(trip: TripOption, copy: Copy): String {
     val transferText = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}"
     return "${trip.durationMinutes} ${copy.minutes} · $transferText"
