@@ -448,8 +448,8 @@ private fun TimeAdjustButton(label: String, modifier: Modifier = Modifier, onCli
 private fun TripsContent(mode: ScreenMode.Trips, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(if (mode.recovery) copy.recovery else copy.planner, vm::back) {
         if (mode.trips.isEmpty()) Body(copy.noJourneys)
-        mode.trips.forEachIndexed { index, trip ->
-            JourneyResultCard(index + 1, trip, copy) { vm.showTrip(trip, mode.request) }
+        mode.trips.forEach { trip ->
+            JourneyResultCard(trip, copy) { vm.showTrip(trip, mode.request) }
         }
     }
 }
@@ -548,12 +548,20 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
                 modifier = Modifier.weight(1f),
             )
         }
-        LightText(
-            tripSummary(trip, copy),
-            LightTextVariant.Detail,
-            lighten = true,
-            modifier = Modifier.padding(top = 0.55f.gridUnitsAsDp()),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LightText(
+                tripSummary(trip, copy),
+                LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+            JourneyServiceSequence(trip)
+        }
     }
 }
 
@@ -804,10 +812,7 @@ private fun TimelineRide(leg: TripLeg, copy: Copy) {
 
 @Composable
 private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
-    val service = listOfNotNull(
-        leg.trainType.takeIf(String::isNotBlank),
-        leg.trainNumber?.takeIf(String::isNotBlank),
-    ).joinToString(" ")
+    val service = leg.trainType.trim()
     val destination = leg.serviceDestinationName?.takeIf(String::isNotBlank)
     if (service.isBlank() && destination == null) return
     Column(
@@ -1271,7 +1276,7 @@ private fun PlannerAction(
 }
 
 @Composable
-private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick: () -> Unit) {
+private fun JourneyResultCard(trip: TripOption, copy: Copy, onClick: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -1281,11 +1286,10 @@ private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick:
             .padding(0.7f.gridUnitsAsDp()),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Badge(index.toString().padStart(2, '0'), inverted = true)
             JourneyTimeRange(
                 trip = trip,
                 variant = LightTextVariant.Subheading,
-                modifier = Modifier.weight(1f).padding(start = 0.65f.gridUnitsAsDp()),
+                modifier = Modifier.weight(1f),
             )
             LightText("→", LightTextVariant.Subheading, monospace = true)
         }
@@ -1294,8 +1298,36 @@ private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick:
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LightText("${trip.durationMinutes} ${copy.minutes}", LightTextVariant.Detail, lighten = true)
-            Badge(if (trip.transfers == 0) copy.direct else "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}")
+            LightText(
+                "${trip.durationMinutes} ${copy.minutes}",
+                LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.weight(1f),
+            )
+            JourneyServiceSequence(trip)
+        }
+    }
+}
+
+@Composable
+private fun JourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifier) {
+    val services = journeyServiceLabels(trip)
+    if (services.isEmpty()) return
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        services.forEachIndexed { index, service ->
+            if (index > 0) {
+                LightText(
+                    "→",
+                    LightTextVariant.Detail,
+                    monospace = true,
+                    modifier = Modifier.padding(horizontal = 0.2f.gridUnitsAsDp()),
+                )
+            }
+            Badge(service)
         }
     }
 }
@@ -1821,6 +1853,8 @@ internal fun time(value: String): String = parsedInstant(value)?.atZone(amsterda
 internal fun dateTime(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(dateFormatter) ?: value
 private fun price(value: JourneyPrice): String = String.format(Locale.UK, "€ %.2f", value.amountEuroCents / 100.0)
 private fun journeyTitle(journey: TripOption): String = "${journey.legs.firstOrNull()?.origin?.name.orEmpty()} → ${journey.legs.lastOrNull()?.destination?.name.orEmpty()}"
+internal fun journeyServiceLabels(trip: TripOption): List<String> =
+    trip.legs.mapNotNull { leg -> leg.trainType.trim().takeIf(String::isNotBlank) }
 private fun tripSummary(trip: TripOption, copy: Copy): String {
     val transferText = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}"
     return "${trip.durationMinutes} ${copy.minutes} · $transferText"

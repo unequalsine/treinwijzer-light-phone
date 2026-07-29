@@ -137,6 +137,22 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun journeyServiceSequenceKeepsLegOrderWithoutTrainNumbers() {
+        val trip = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
+        val leg = trip.legs.single()
+        val services = trip.copy(
+            legs = listOf(
+                leg.copy(trainType = "IC", trainNumber = "1234"),
+                leg.copy(trainType = " SPR ", trainNumber = "5678"),
+                leg.copy(trainType = "IC", trainNumber = "9012"),
+                leg.copy(trainType = " ", trainNumber = "3456"),
+            ),
+        )
+
+        assertEquals(listOf("IC", "SPR", "IC"), journeyServiceLabels(services))
+    }
+
+    @Test
     fun distinguishesPlannedMaintenanceFromUnexpectedDisruptions() {
         val maintenance = Disruption(
             id = "disruption-1",
