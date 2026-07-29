@@ -17,13 +17,70 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 enum class StationPurpose { INFO, DISRUPTIONS, ORIGIN, DESTINATION, VIA }
+
+data class PlannerDateTimeSelection(
+    val dayOffset: Int,
+    val hour: Int,
+    val minute: Int,
+)
+
+private val plannerZone = ZoneId.of("Europe/Amsterdam")
+
+internal fun initialPlannerDateTimeSelection(
+    persistedValue: String?,
+    now: ZonedDateTime = ZonedDateTime.now(plannerZone),
+): PlannerDateTimeSelection {
+    val localNow = now.withZoneSameInstant(plannerZone)
+    val nextSlotBase = localNow.plusMinutes(5).withSecond(0).withNano(0)
+    val remainder = nextSlotBase.minute % 5
+    val nextSlot = if (remainder == 0) nextSlotBase else nextSlotBase.plusMinutes((5 - remainder).toLong())
+    val persisted = persistedValue
+        ?.let { runCatching { Instant.parse(it).atZone(plannerZone) }.getOrNull() }
+        ?.takeIf { candidate ->
+            val dayOffset = ChronoUnit.DAYS.between(localNow.toLocalDate(), candidate.toLocalDate())
+            !candidate.isBefore(localNow) && dayOffset in 0L..2L
+        }
+    val selected = persisted ?: nextSlot
+    return PlannerDateTimeSelection(
+        dayOffset = ChronoUnit.DAYS.between(localNow.toLocalDate(), selected.toLocalDate()).toInt().coerceIn(0, 2),
+        hour = selected.hour,
+        minute = selected.minute,
+    )
+}
+
+internal fun shiftPlannerDateTimeSelection(
+    selection: PlannerDateTimeSelection,
+    minutes: Int,
+): PlannerDateTimeSelection {
+    val current = selection.dayOffset * MINUTES_PER_DAY + selection.hour * 60 + selection.minute
+    val shifted = (current + minutes).coerceIn(0, MAX_PICKER_MINUTE)
+    return PlannerDateTimeSelection(
+        dayOffset = shifted / MINUTES_PER_DAY,
+        hour = shifted % MINUTES_PER_DAY / 60,
+        minute = shifted % 60,
+    )
+}
+
+internal fun plannerDateTimeInstant(
+    selection: PlannerDateTimeSelection,
+    today: LocalDate = LocalDate.now(plannerZone),
+): String = LocalDateTime.of(
+    today.plusDays(selection.dayOffset.toLong()),
+    LocalTime.of(selection.hour, selection.minute),
+).atZone(plannerZone).toInstant().toString()
+
+private const val MINUTES_PER_DAY = 24 * 60
+private const val MAX_PICKER_MINUTE = 3 * MINUTES_PER_DAY - 1
 
 sealed interface ScreenMode {
     data object Loading : ScreenMode
@@ -38,7 +95,7 @@ sealed interface ScreenMode {
     data class Disruptions(val station: Station, val disruptions: List<Disruption>) : ScreenMode
     data class DisruptionDetails(val disruption: Disruption) : ScreenMode
     data object Planner : ScreenMode
-    data class DateTimeInput(val session: Int) : ScreenMode
+    data class DateTimeInput(val selection: PlannerDateTimeSelection) : ScreenMode
     data class Trips(val request: PlannerRequest, val trips: List<TripOption>, val recovery: Boolean = false) : ScreenMode
     data class TripDetails(val trip: TripOption, val request: PlannerRequest?) : ScreenMode
     data object Favourites : ScreenMode
@@ -89,7 +146,6 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private val _uiState = MutableStateFlow(TreinwijzerUiState())
     val uiState: StateFlow<TreinwijzerUiState> = _uiState.asStateFlow()
     private var foregroundRefresh: Job? = null
-    private var dateTimeInputSession = 0
     private val handledUpdates = LinkedHashSet<String>()
     private val screenHistory = ScreenHistory()
 
@@ -235,20 +291,21 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun openDateTimeInput() {
-        dateTimeInputSession += 1
-        updateMode(ScreenMode.DateTimeInput(dateTimeInputSession))
+        val currentValue = _uiState.value.persisted.plannerPreferences.dateTime
+        updateMode(ScreenMode.DateTimeInput(initialPlannerDateTimeSelection(currentValue)))
     }
 
-    fun setPlannerDateTime(value: String) {
-        val formatted = try {
-            LocalDateTime.parse(value.trim(), DATE_INPUT_FORMAT)
-                .atZone(ZoneId.of("Europe/Amsterdam"))
-                .toInstant()
-                .toString()
-        } catch (_: DateTimeParseException) {
-            _uiState.update { it.copy(errorModal = Copy(it.persisted.language).invalidDate) }
-            return
-        }
+    fun selectPlannerDay(dayOffset: Int) {
+        updateDateTimeSelection { it.copy(dayOffset = dayOffset.coerceIn(0, 2)) }
+    }
+
+    fun adjustPlannerTime(minutes: Int) {
+        updateDateTimeSelection { shiftPlannerDateTimeSelection(it, minutes) }
+    }
+
+    fun confirmPlannerDateTime() {
+        val selection = (_uiState.value.mode as? ScreenMode.DateTimeInput)?.selection ?: return
+        val formatted = plannerDateTimeInstant(selection)
         viewModelScope.launch(Dispatchers.IO) {
             updatePersisted { state -> state.copy(plannerPreferences = state.plannerPreferences.copy(dateTime = formatted)) }
             returnToPlanner()
@@ -497,6 +554,11 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     private fun replaceMode(mode: ScreenMode) = _uiState.update { it.copy(mode = mode, errorModal = null) }
 
+    private fun updateDateTimeSelection(transform: (PlannerDateTimeSelection) -> PlannerDateTimeSelection) {
+        val mode = _uiState.value.mode as? ScreenMode.DateTimeInput ?: return
+        replaceMode(mode.copy(selection = transform(mode.selection)))
+    }
+
     private fun navigateBack(): Boolean {
         val current = _uiState.value.mode
         if (current == ScreenMode.Home || current == ScreenMode.Loading) return false
@@ -516,7 +578,6 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     companion object {
-        private val DATE_INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
         private val STATION_INDEX_PREFIXES = setOf("s", "t", "de", "den", "het")
 
         internal fun filterStations(stations: List<Station>, query: String): List<Station> {

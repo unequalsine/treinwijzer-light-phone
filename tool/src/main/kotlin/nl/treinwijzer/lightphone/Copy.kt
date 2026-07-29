@@ -38,7 +38,14 @@ class Copy(private val language: Language) {
     val arriving get() = value("Arrive", "Aankomst")
     val now get() = value("Now", "Nu")
     val chooseTime get() = value("Date and time", "Datum en tijd")
-    val dateTimeHelp get() = value("Enter YYYY-MM-DD HH:mm", "Voer JJJJ-MM-DD UU:mm in")
+    val day get() = value("Day", "Dag")
+    val time get() = value("Time", "Tijd")
+    val today get() = value("Today", "Vandaag")
+    val tomorrow get() = value("Tomorrow", "Morgen")
+    val plusTwoDays get() = value("+2 days", "+2 dagen")
+    val hour get() = value("Hour", "Uur")
+    val minute get() = value("Minute", "Minuut")
+    val useTime get() = value("Use time", "Gebruik tijd")
     val plan get() = value("Plan", "Plan")
     val swap get() = value("Swap", "Wissel")
     val removeVia get() = value("Remove via", "Verwijder via")
@@ -96,5 +103,4 @@ class Copy(private val language: Language) {
         "Background tracking works through Light push. The current SDK cannot show a system alert while the tool is closed; missed alerts appear here on next launch.",
         "Volgen op de achtergrond werkt via Light-push. De huidige SDK kan geen systeemmelding tonen als de tool gesloten is; gemiste meldingen verschijnen bij de volgende start.",
     )
-    val invalidDate get() = value("Use YYYY-MM-DD HH:mm.", "Gebruik JJJJ-MM-DD UU:mm.")
 }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,13 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
-import com.thelightphone.sdk.rememberKeyboardOptions
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightFullscreenModal
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightScrollView
 import com.thelightphone.sdk.ui.LightText
-import com.thelightphone.sdk.ui.LightTextInputEditor
 import com.thelightphone.sdk.ui.LightTextVariant
 import com.thelightphone.sdk.ui.LightTheme
 import com.thelightphone.sdk.ui.LightThemeController
@@ -66,7 +63,6 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
         val colours by LightThemeController.colors.collectAsState()
         val state by viewModel.uiState.collectAsState()
         val copy = Copy(state.persisted.language)
-        val keyboardOptions = rememberKeyboardOptions()
 
         LightTheme(colors = colours) {
             Box(
@@ -91,20 +87,7 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
                     is ScreenMode.DisruptionDetails -> DisruptionDetailsContent(mode.disruption, copy, viewModel)
                     ScreenMode.Planner -> PlannerContent(state, copy, viewModel)
-                    is ScreenMode.DateTimeInput -> {
-                        val input = rememberTextFieldState("")
-                        LightTextInputEditor(
-                            title = copy.chooseTime,
-                            state = input,
-                            editorKey = mode.session,
-                            keyboardOptionsFlow = keyboardOptions,
-                            onSubmit = { viewModel.setPlannerDateTime(it.toString()) },
-                            onBack = viewModel::back,
-                            submitIcon = LightIcons.ACCEPT,
-                            singleLine = true,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                    is ScreenMode.DateTimeInput -> DateTimePickerContent(mode.selection, copy, viewModel)
                     is ScreenMode.Trips -> TripsContent(mode, copy, viewModel)
                     is ScreenMode.TripDetails -> TripDetailsContent(mode, state, copy, viewModel)
                     ScreenMode.Favourites -> FavouritesContent(state, copy, viewModel)
@@ -334,6 +317,118 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
         }
         if (preferences.dateTime != null) ListAction(copy.now, copy.chooseTime, vm::useCurrentTime)
         PrimaryAction(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), Modifier.fillMaxWidth(), vm::planJourney)
+    }
+}
+
+@Composable
+private fun DateTimePickerContent(
+    selection: PlannerDateTimeSelection,
+    copy: Copy,
+    vm: TreinwijzerViewModel,
+) {
+    val selectedDay = when (selection.dayOffset) {
+        0 -> copy.today
+        1 -> copy.tomorrow
+        else -> copy.plusTwoDays
+    }
+    val selectedTime = "%02d:%02d".format(Locale.ROOT, selection.hour, selection.minute)
+    ScreenFrame(copy.chooseTime, vm::back) {
+        Section(copy.day)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            SegmentChoice(copy.today, selection.dayOffset == 0, Modifier.weight(1f)) { vm.selectPlannerDay(0) }
+            SegmentChoice(copy.tomorrow, selection.dayOffset == 1, Modifier.weight(1f)) { vm.selectPlannerDay(1) }
+            SegmentChoice(copy.plusTwoDays, selection.dayOffset == 2, Modifier.weight(1f)) { vm.selectPlannerDay(2) }
+        }
+        Section(copy.time)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            TimeStepper(
+                label = copy.hour,
+                value = selection.hour.toString().padStart(2, '0'),
+                modifier = Modifier.weight(1f),
+                onDecrease = { vm.adjustPlannerTime(-60) },
+                onIncrease = { vm.adjustPlannerTime(60) },
+            )
+            LightText(
+                ":",
+                LightTextVariant.Heading,
+                monospace = true,
+                modifier = Modifier.padding(bottom = 0.35f.gridUnitsAsDp()),
+            )
+            TimeStepper(
+                label = copy.minute,
+                value = selection.minute.toString().padStart(2, '0'),
+                modifier = Modifier.weight(1f),
+                onDecrease = { vm.adjustPlannerTime(-5) },
+                onIncrease = { vm.adjustPlannerTime(5) },
+            )
+        }
+        PrimaryAction(
+            title = copy.useTime,
+            detail = "$selectedDay · $selectedTime",
+            modifier = Modifier.fillMaxWidth().padding(top = 0.65f.gridUnitsAsDp()),
+            onClick = vm::confirmPlannerDateTime,
+        )
+    }
+}
+
+@Composable
+private fun TimeStepper(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+) {
+    Column(modifier) {
+        LightText(
+            label.uppercase(Locale.ROOT),
+            LightTextVariant.Superfine,
+            monospace = true,
+            lighten = true,
+            modifier = Modifier.padding(bottom = 0.25f.gridUnitsAsDp()),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.2f.gridUnitsAsDp()),
+        ) {
+            TimeAdjustButton("−", Modifier.weight(1f), onDecrease)
+            Box(
+                Modifier
+                    .weight(1.4f)
+                    .height(1.7f.gridUnitsAsDp())
+                    .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
+                contentAlignment = Alignment.Center,
+            ) {
+                LightText(value, LightTextVariant.Subheading, monospace = true)
+            }
+            TimeAdjustButton("+", Modifier.weight(1f), onIncrease)
+        }
+    }
+}
+
+@Composable
+private fun TimeAdjustButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(1.7f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.content)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(
+            label,
+            LightTextVariant.Subheading,
+            color = LightThemeTokens.colors.background,
+            monospace = true,
+        )
     }
 }
 
