@@ -48,11 +48,11 @@ internal fun initialPlannerDateTimeSelection(
         ?.let { runCatching { Instant.parse(it).atZone(plannerZone) }.getOrNull() }
         ?.takeIf { candidate ->
             val dayOffset = ChronoUnit.DAYS.between(localNow.toLocalDate(), candidate.toLocalDate())
-            !candidate.isBefore(localNow) && dayOffset in 0L..2L
+            !candidate.isBefore(localNow) && dayOffset in 0L..1L
         }
     val selected = persisted ?: nextSlot
     return PlannerDateTimeSelection(
-        dayOffset = ChronoUnit.DAYS.between(localNow.toLocalDate(), selected.toLocalDate()).toInt().coerceIn(0, 2),
+        dayOffset = ChronoUnit.DAYS.between(localNow.toLocalDate(), selected.toLocalDate()).toInt().coerceIn(0, 1),
         hour = selected.hour,
         minute = selected.minute,
     )
@@ -80,7 +80,7 @@ internal fun plannerDateTimeInstant(
 ).atZone(plannerZone).toInstant().toString()
 
 private const val MINUTES_PER_DAY = 24 * 60
-private const val MAX_PICKER_MINUTE = 3 * MINUTES_PER_DAY - 1
+private const val MAX_PICKER_MINUTE = 2 * MINUTES_PER_DAY - 1
 
 sealed interface ScreenMode {
     data object Loading : ScreenMode
@@ -296,7 +296,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun selectPlannerDay(dayOffset: Int) {
-        updateDateTimeSelection { it.copy(dayOffset = dayOffset.coerceIn(0, 2)) }
+        updateDateTimeSelection { it.copy(dayOffset = dayOffset.coerceIn(0, 1)) }
     }
 
     fun adjustPlannerTime(minutes: Int) {

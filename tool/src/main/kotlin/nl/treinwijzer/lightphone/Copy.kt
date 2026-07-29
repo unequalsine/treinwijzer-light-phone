@@ -42,7 +42,6 @@ class Copy(private val language: Language) {
     val time get() = value("Time", "Tijd")
     val today get() = value("Today", "Vandaag")
     val tomorrow get() = value("Tomorrow", "Morgen")
-    val plusTwoDays get() = value("+2 days", "+2 dagen")
     val hour get() = value("Hour", "Uur")
     val minute get() = value("Minute", "Minuut")
     val useTime get() = value("Use time", "Gebruik tijd")

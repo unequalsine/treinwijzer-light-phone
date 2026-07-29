@@ -338,11 +338,7 @@ private fun DateTimePickerContent(
     copy: Copy,
     vm: TreinwijzerViewModel,
 ) {
-    val selectedDay = when (selection.dayOffset) {
-        0 -> copy.today
-        1 -> copy.tomorrow
-        else -> copy.plusTwoDays
-    }
+    val selectedDay = if (selection.dayOffset == 0) copy.today else copy.tomorrow
     val selectedTime = "%02d:%02d".format(Locale.ROOT, selection.hour, selection.minute)
     ScreenFrame(copy.chooseTime, vm::back) {
         Section(copy.day)
@@ -352,7 +348,6 @@ private fun DateTimePickerContent(
         ) {
             SegmentChoice(copy.today, selection.dayOffset == 0, Modifier.weight(1f)) { vm.selectPlannerDay(0) }
             SegmentChoice(copy.tomorrow, selection.dayOffset == 1, Modifier.weight(1f)) { vm.selectPlannerDay(1) }
-            SegmentChoice(copy.plusTwoDays, selection.dayOffset == 2, Modifier.weight(1f)) { vm.selectPlannerDay(2) }
         }
         Section(copy.time)
         Row(

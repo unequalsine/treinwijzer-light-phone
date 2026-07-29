@@ -195,12 +195,22 @@ class ContractAndLogicTest {
     }
 
     @Test
-    fun dateTimePickerRestoresFutureSelectionWithinThreeDays() {
+    fun dateTimePickerRestoresFutureSelectionForTomorrow() {
         val now = ZonedDateTime.parse("2026-07-29T14:02:30+02:00[Europe/Amsterdam]")
 
         assertEquals(
             PlannerDateTimeSelection(dayOffset = 1, hour = 10, minute = 47),
             initialPlannerDateTimeSelection(persistedValue = "2026-07-30T08:47:00Z", now = now),
+        )
+    }
+
+    @Test
+    fun dateTimePickerRejectsPersistedSelectionBeyondTomorrow() {
+        val now = ZonedDateTime.parse("2026-07-29T14:02:30+02:00[Europe/Amsterdam]")
+
+        assertEquals(
+            PlannerDateTimeSelection(dayOffset = 0, hour = 14, minute = 10),
+            initialPlannerDateTimeSelection(persistedValue = "2026-07-31T08:47:00Z", now = now),
         )
     }
 
@@ -214,9 +224,9 @@ class ContractAndLogicTest {
             ),
         )
         assertEquals(
-            PlannerDateTimeSelection(dayOffset = 2, hour = 23, minute = 59),
+            PlannerDateTimeSelection(dayOffset = 1, hour = 23, minute = 59),
             shiftPlannerDateTimeSelection(
-                PlannerDateTimeSelection(dayOffset = 2, hour = 23, minute = 55),
+                PlannerDateTimeSelection(dayOffset = 1, hour = 23, minute = 55),
                 minutes = 5,
             ),
         )
