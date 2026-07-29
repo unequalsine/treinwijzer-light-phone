@@ -185,6 +185,17 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun liveTimelineOnlyMarksCompletedMomentsAsPast() {
+        val now = Instant.parse("2026-07-29T19:00:00Z")
+
+        assertTrue(timelineMomentHasPassed("2026-07-29T18:59:59Z", now))
+        assertTrue(timelineMomentHasPassed("2026-07-29T21:00:00+0200", now))
+        assertTrue(!timelineMomentHasPassed("2026-07-29T19:00:01Z", now))
+        assertTrue(!timelineMomentHasPassed("not-a-timestamp", now))
+        assertTrue(!timelineMomentHasPassed("2026-07-29T18:59:59Z", null))
+    }
+
+    @Test
     fun journeyServiceSequenceKeepsLegOrderWithoutTrainNumbers() {
         val trip = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
         val leg = trip.legs.single()

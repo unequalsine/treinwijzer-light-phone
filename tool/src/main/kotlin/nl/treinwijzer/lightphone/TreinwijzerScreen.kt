@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -510,7 +511,8 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
 
 @Composable
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
-    val recoveryRoute = journey.activeRecoveryRoute(Instant.now())
+    val now = Instant.now()
+    val recoveryRoute = journey.activeRecoveryRoute(now)
     ScreenFrame(copy.activeJourney, vm::back) {
         JourneyOverview(journey, copy)
         Row(
@@ -524,7 +526,7 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
             PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
         }
         Section(copy.journeyTimeline)
-        JourneyTimeline(journey, copy)
+        JourneyTimeline(journey, copy, now)
         if (journey.disruptions.isNotEmpty()) {
             Section(copy.disruptions)
             journey.disruptions.forEach { disruption ->
@@ -736,7 +738,7 @@ private fun SecondaryAction(
 }
 
 @Composable
-private fun JourneyTimeline(trip: TripOption, copy: Copy) {
+private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null) {
     if (trip.legs.isEmpty()) {
         Body(copy.noJourneys)
         return
@@ -751,9 +753,10 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
                 cancelled = leg.cancelled,
                 copy = copy,
                 connectBelow = true,
+                isPast = timelineMomentHasPassed(leg.actualDeparture, now),
             )
         }
-        TimelineRide(leg, copy)
+        TimelineRide(leg, copy, isPast = timelineMomentHasPassed(leg.actualArrival, now))
         val nextLeg = trip.legs.getOrNull(index + 1)
         if (nextLeg == null) {
             TimelineStation(
@@ -764,9 +767,15 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy) {
                 cancelled = leg.cancelled,
                 copy = copy,
                 connectAbove = true,
+                isPast = timelineMomentHasPassed(leg.actualArrival, now),
             )
         } else {
-            TimelineTransfer(leg, nextLeg, copy)
+            TimelineTransfer(
+                leg,
+                nextLeg,
+                copy,
+                isPast = timelineMomentHasPassed(nextLeg.actualDeparture, now),
+            )
         }
     }
 }
@@ -782,8 +791,9 @@ private fun TimelineStation(
     markerInverted: Boolean = false,
     connectAbove: Boolean = false,
     connectBelow: Boolean = false,
+    isPast: Boolean = false,
 ) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).timelinePastAlpha(isPast)) {
         TimelineTime(time(plannedTime), delayMinutes, Modifier.padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()))
         TimelineRail(
             connectAbove = connectAbove,
@@ -826,8 +836,8 @@ private fun TimelineStation(
 }
 
 @Composable
-private fun TimelineRide(leg: TripLeg, copy: Copy) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+private fun TimelineRide(leg: TripLeg, copy: Copy, isPast: Boolean = false) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).timelinePastAlpha(isPast)) {
         Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
         TimelineLine()
         Column(
@@ -885,38 +895,40 @@ private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
 }
 
 @Composable
-private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: Copy) {
+private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: Copy, isPast: Boolean = false) {
     val station = arrivingLeg.destination.name
     val arrivalPlatform = arrivingLeg.actualArrivalPlatform ?: arrivingLeg.plannedArrivalPlatform
     val departurePlatform = departingLeg.actualDeparturePlatform ?: departingLeg.plannedDeparturePlatform
 
-    TimelineStation(
-        station = station,
-        plannedTime = arrivingLeg.plannedArrival,
-        platform = arrivalPlatform,
-        delayMinutes = arrivingLeg.arrivalDelayMinutes,
-        cancelled = arrivingLeg.cancelled,
-        copy = copy,
-        markerInverted = true,
-        connectAbove = true,
-        connectBelow = false,
-    )
-    TimelineTransferWait(
-        durationMinutes = transferMinutes(arrivingLeg, departingLeg),
-        arrivalPlatform = arrivalPlatform,
-        departurePlatform = departurePlatform,
-        copy = copy,
-    )
-    TimelineStation(
-        station = station,
-        plannedTime = departingLeg.plannedDeparture,
-        platform = departurePlatform,
-        delayMinutes = departingLeg.departureDelayMinutes,
-        cancelled = departingLeg.cancelled,
-        copy = copy,
-        connectAbove = false,
-        connectBelow = true,
-    )
+    Column(Modifier.timelinePastAlpha(isPast)) {
+        TimelineStation(
+            station = station,
+            plannedTime = arrivingLeg.plannedArrival,
+            platform = arrivalPlatform,
+            delayMinutes = arrivingLeg.arrivalDelayMinutes,
+            cancelled = arrivingLeg.cancelled,
+            copy = copy,
+            markerInverted = true,
+            connectAbove = true,
+            connectBelow = false,
+        )
+        TimelineTransferWait(
+            durationMinutes = transferMinutes(arrivingLeg, departingLeg),
+            arrivalPlatform = arrivalPlatform,
+            departurePlatform = departurePlatform,
+            copy = copy,
+        )
+        TimelineStation(
+            station = station,
+            plannedTime = departingLeg.plannedDeparture,
+            platform = departurePlatform,
+            delayMinutes = departingLeg.departureDelayMinutes,
+            cancelled = departingLeg.cancelled,
+            copy = copy,
+            connectAbove = false,
+            connectBelow = true,
+        )
+    }
 }
 
 @Composable
@@ -1896,6 +1908,7 @@ private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
 private const val timelineTransferGapGridUnits = 0.9f
+private const val timelinePastContentAlpha = 0.46f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
 private val compactOffsetFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")
@@ -1904,6 +1917,13 @@ private fun parsedInstant(value: String): Instant? =
     runCatching { Instant.parse(value) }.getOrNull()
         ?: runCatching { OffsetDateTime.parse(value, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant() }.getOrNull()
         ?: runCatching { OffsetDateTime.parse(value, compactOffsetFormatter).toInstant() }.getOrNull()
+internal fun timelineMomentHasPassed(value: String, now: Instant?): Boolean {
+    val referenceNow = now ?: return false
+    val moment = parsedInstant(value) ?: return false
+    return !referenceNow.isBefore(moment)
+}
+private fun Modifier.timelinePastAlpha(isPast: Boolean): Modifier =
+    if (isPast) alpha(timelinePastContentAlpha) else this
 private fun transferMinutes(arrivingLeg: TripLeg, departingLeg: TripLeg): Int? {
     arrivingLeg.transferMinutesAfterLeg?.let { return it }
     val arrival = parsedInstant(arrivingLeg.actualArrival) ?: return null
