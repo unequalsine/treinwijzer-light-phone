@@ -12,6 +12,7 @@ class Copy(private val language: Language) {
     val stationIndex get() = value("Stations A–Z", "Stations A–Z")
     val noResults get() = value("No stations found.", "Geen stations gevonden.")
     val departures get() = value("Departures", "Vertrektijden")
+    val departureDetails get() = value("Departure details", "Vertrekdetails")
     val disruptions get() = value("Disruptions", "Storingen")
     val planner get() = value("Plan journey", "Reis plannen")
     val journeyDetails get() = value("Journey details", "Reisdetails")
@@ -25,6 +26,7 @@ class Copy(private val language: Language) {
         "Stations in de buurt worden niet ondersteund door de huidige Light SDK, omdat tools geen locatietoegang hebben.",
     )
     val activeJourney get() = value("Active journey", "Actieve reis")
+    val liveJourney get() = value("Live journey", "Live reis")
     val origin get() = value("From", "Van")
     val destination get() = value("To", "Naar")
     val via get() = value("Via (optional)", "Via (optioneel)")
@@ -34,6 +36,8 @@ class Copy(private val language: Language) {
     val chooseTime get() = value("Date and time", "Datum en tijd")
     val dateTimeHelp get() = value("Enter YYYY-MM-DD HH:mm", "Voer JJJJ-MM-DD UU:mm in")
     val plan get() = value("Plan", "Plan")
+    val swap get() = value("Swap", "Wissel")
+    val removeVia get() = value("Remove via", "Verwijder via")
     val refresh get() = value("Refresh", "Vernieuwen")
     val track get() = value("Track journey", "Reis volgen")
     val stopTracking get() = value("Stop tracking", "Stop volgen")
@@ -48,6 +52,9 @@ class Copy(private val language: Language) {
     val noJourneys get() = value("No journeys found.", "Geen reizen gevonden.")
     val noDepartures get() = value("No departures found.", "Geen vertrektijden gevonden.")
     val noDisruptions get() = value("No current disruptions.", "Geen actuele storingen.")
+    val routeStops get() = value("Route stops", "Tussenstops")
+    val information get() = value("Information", "Informatie")
+    val direct get() = value("Direct", "Rechtstreeks")
     val addFavourite get() = value("Add favourite", "Favoriet toevoegen")
     val removeFavourite get() = value("Remove favourite", "Favoriet verwijderen")
     val saveRoute get() = value("Save route", "Route bewaren")
@@ -55,11 +62,14 @@ class Copy(private val language: Language) {
     val favouriteStations get() = value("Favourite stations", "Favoriete stations")
     val noFavouriteStations get() = value("No favourite stations yet.", "Nog geen favoriete stations.")
     val favouriteRoutes get() = value("Favourite routes", "Favoriete routes")
+    val noFavouriteRoutes get() = value("No favourite routes yet.", "Nog geen favoriete routes.")
+    val useRoute get() = value("Use route", "Gebruik route")
     val travel get() = value("Travel", "Reizen")
     val route get() = value("Route", "Route")
     val whenToTravel get() = value("When", "Wanneer")
     val more get() = value("More", "Meer")
     val alerts get() = value("Journey alerts", "Reismeldingen")
+    val notifications get() = value("Notifications", "Meldingen")
     val guidance get() = value("Transfer guidance", "Overstapbegeleiding")
     val english get() = "English"
     val dutch get() = "Nederlands"
@@ -77,6 +87,7 @@ class Copy(private val language: Language) {
     val price get() = value("Price", "Prijs")
     val live get() = value("Live", "Live")
     val configured get() = value("Connected", "Verbonden")
+    val connection get() = value("Connection", "Verbinding")
     val notConfigured get() = value("Worker token is not configured.", "Worker-token is niet ingesteld.")
     val notificationsLimited get() = value(
         "Background tracking works through Light push. The current SDK cannot show a system alert while the tool is closed; missed alerts appear here on next launch.",

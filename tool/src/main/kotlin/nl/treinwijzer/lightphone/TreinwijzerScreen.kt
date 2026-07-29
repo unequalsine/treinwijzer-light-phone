@@ -26,7 +26,6 @@ import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
 import com.thelightphone.sdk.rememberKeyboardOptions
 import com.thelightphone.sdk.ui.LightBarButton
-import com.thelightphone.sdk.ui.LightBottomBar
 import com.thelightphone.sdk.ui.LightFullscreenModal
 import com.thelightphone.sdk.ui.LightIcons
 import com.thelightphone.sdk.ui.LightScrollView
@@ -123,23 +122,27 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
 private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.app) {
         state.persisted.activeJourney?.let { journey ->
-            Section(copy.live)
-            ActionRow(journeyTitle(journey), "${copy.live} · ${journey.status}", vm::openActive)
+            LiveJourneyCard(journey, copy, vm::openActive)
         }
         Section(copy.travel)
-        MenuAction("01", copy.planner, "${copy.origin} · ${copy.destination}", vm::openPlanner)
-        MenuAction("02", copy.departures, copy.chooseStation) { vm.openStationSearch(StationPurpose.INFO) }
-        MenuAction("03", copy.disruptions, copy.chooseStation) { vm.openStationSearch(StationPurpose.DISRUPTIONS) }
+        MenuAction("01", copy.planner, "${copy.origin} → ${copy.destination}", prominent = true, onClick = vm::openPlanner)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            HomeShortcut("02", copy.departures, Modifier.weight(1f)) { vm.openStationSearch(StationPurpose.INFO) }
+            HomeShortcut("03", copy.disruptions, Modifier.weight(1f)) { vm.openStationSearch(StationPurpose.DISRUPTIONS) }
+        }
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
             state.persisted.favouriteStations.take(4).forEach { station ->
-                ActionRow(station.name) { vm.loadDepartures(station) }
+                ListAction(station.name, copy.departures) { vm.loadDepartures(station) }
             }
         }
         Section(copy.more)
-        ActionRow(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
-        ActionRow(copy.nearest, copy.unavailable, vm::openNearest)
-        ActionRow(copy.settings, if (state.persisted.language == Language.ENGLISH) copy.english else copy.dutch, vm::openSettings)
+        ListAction(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
+        ListAction(copy.nearest, copy.unavailable, vm::openNearest)
+        ListAction(copy.settings, if (state.persisted.language == Language.ENGLISH) copy.english else copy.dutch, vm::openSettings)
     }
 }
 
@@ -168,7 +171,7 @@ private fun StationPickerContent(
         Section(copy.favouriteStations)
         if (state.persisted.favouriteStations.isEmpty()) Body(copy.noFavouriteStations)
         state.persisted.favouriteStations.forEach { station ->
-            ActionRow(station.name) { vm.selectStation(station, mode.purpose) }
+            ListAction(station.name) { vm.selectStation(station, mode.purpose) }
         }
     }
 }
@@ -195,7 +198,7 @@ private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: T
 private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(mode.query, { vm.openStationIndex(mode.purpose) }) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
-        mode.stations.forEach { station -> ActionRow(station.name) { vm.selectStation(station, mode.purpose) } }
+        mode.stations.forEach { station -> ListAction(station.name) { vm.selectStation(station, mode.purpose) } }
     }
 }
 
@@ -203,7 +206,7 @@ private fun StationResultsContent(mode: ScreenMode.StationResults, copy: Copy, v
 private fun StationRecentsContent(mode: ScreenMode.StationRecents, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.recents, { vm.openStationSearch(mode.purpose) }) {
         if (mode.stations.isEmpty()) Body(copy.noResults)
-        mode.stations.forEach { station -> ActionRow(station.name) { vm.selectStation(station, mode.purpose) } }
+        mode.stations.forEach { station -> ListAction(station.name) { vm.selectStation(station, mode.purpose) } }
     }
 }
 
@@ -215,10 +218,10 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            CompactAction(if (favourite) "−" else "+", if (favourite) copy.removeFavourite else copy.addFavourite, Modifier.weight(1f)) {
+            UtilityAction(if (favourite) "−" else "+", if (favourite) copy.removeFavourite else copy.addFavourite, Modifier.weight(1f)) {
                 vm.toggleFavouriteStation(mode.station)
             }
-            CompactAction("!", copy.disruptions, Modifier.weight(1f)) { vm.loadDisruptions(mode.station) }
+            UtilityAction("!", copy.disruptions, Modifier.weight(1f)) { vm.loadDisruptions(mode.station) }
         }
         Section(copy.departures)
         if (mode.departures.isEmpty()) Body(copy.noDepartures)
@@ -231,20 +234,21 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
 @Composable
 private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Copy, vm: TreinwijzerViewModel) {
     val departure = mode.departure
-    ScreenFrame(departure.direction, vm::home) {
-        TrainPlatformBadges(
-            trainType = departure.trainType,
-            trainNumber = departure.trainNumber,
-            platform = departure.actualTrack ?: departure.plannedTrack,
-            copy = copy,
-        )
-        departureStatus(departure, copy)?.let { Body(it) }
-        Detail(copy.leaving, dateTime(departure.actualDateTime))
-        if (departure.routeStations.isNotEmpty()) Detail(copy.destination, departure.routeStations.joinToString(" · "))
-        departure.stops.forEach { stop ->
-            Detail(stop.name, listOfNotNull(stop.actualDeparture?.let(::time), stop.actualPlatform?.let { "${copy.platform} $it" }).joinToString(" · "))
+    ScreenFrame(copy.departureDetails, vm::home) {
+        DepartureHero(departure, copy)
+        if (departure.stops.isNotEmpty()) {
+            Section(copy.routeStops)
+            departure.stops.forEachIndexed { index, stop ->
+                DepartureStopRow(stop, first = index == 0, last = index == departure.stops.lastIndex, copy = copy)
+            }
+        } else if (departure.routeStations.isNotEmpty()) {
+            Section(copy.routeStops)
+            departure.routeStations.forEach { station -> ListLabel(station) }
         }
-        departure.messages.forEach { Body(it) }
+        if (departure.messages.isNotEmpty()) {
+            Section(copy.information)
+            departure.messages.forEach { Notice(it) }
+        }
     }
 }
 
@@ -252,20 +256,25 @@ private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Cop
 private fun DisruptionsContent(mode: ScreenMode.Disruptions, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.disruptions, vm::home) {
         if (mode.disruptions.isEmpty()) Body(copy.noDisruptions)
-        mode.disruptions.forEach { disruption -> ActionRow(disruption.title, disruption.severity) { vm.showDisruption(disruption) } }
+        mode.disruptions.forEach { disruption -> DisruptionCard(disruption) { vm.showDisruption(disruption) } }
     }
 }
 
 @Composable
 private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.disruptions, vm::home) {
-        Heading(disruption.title)
-        Detail(disruption.type, disruption.severity)
-        disruption.trajectories.forEach { Body(it) }
-        listOfNotNull(disruption.cause, disruption.situation, disruption.description, disruption.advice, disruption.expectedDuration, disruption.additionalTravelTime)
-            .forEach { Body(it) }
-        disruption.advices.forEach { Body(it) }
-        disruption.consequences.forEach { Body(it) }
+        DisruptionHero(disruption)
+        disruption.trajectories.forEach { Notice(it) }
+        val situation = listOfNotNull(disruption.cause, disruption.situation, disruption.description)
+        if (situation.isNotEmpty()) {
+            Section(copy.information)
+            situation.forEach { Body(it) }
+        }
+        val advice = listOfNotNull(disruption.advice, disruption.expectedDuration, disruption.additionalTravelTime) + disruption.advices + disruption.consequences
+        if (advice.isNotEmpty()) {
+            Section(copy.guidance)
+            advice.forEach { Body(it) }
+        }
     }
 }
 
@@ -273,22 +282,37 @@ private fun DisruptionDetailsContent(disruption: Disruption, copy: Copy, vm: Tre
 private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.planner, vm::home) {
         Section(copy.route)
-        ActionRow(copy.origin, state.plannerOrigin?.name ?: copy.chooseStation) { vm.openStationSearch(StationPurpose.ORIGIN) }
-        ActionRow(copy.destination, state.plannerDestination?.name ?: copy.chooseStation) { vm.openStationSearch(StationPurpose.DESTINATION) }
-        ActionRow(copy.via, state.plannerVia?.name ?: "–") { vm.openStationSearch(StationPurpose.VIA) }
-        if (state.plannerVia != null) ActionRow(copy.close, copy.via, vm::clearVia)
-        ActionRow("⇅", "${copy.origin} / ${copy.destination}", vm::swapPlannerStations)
+        PlannerRouteCard(state, copy, vm)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            UtilityAction("⇅", copy.swap, Modifier.weight(1f), vm::swapPlannerStations)
+            if (state.plannerVia != null) {
+                UtilityAction("×", copy.removeVia, Modifier.weight(1f), vm::clearVia)
+            }
+        }
         Section(copy.whenToTravel)
         val preferences = state.persisted.plannerPreferences
-        ActionRow(
-            if (preferences.timeMode == PlannerTimeMode.DEPARTURE) copy.leaving else copy.arriving,
-            if (preferences.dateTime == null) copy.now else dateTime(preferences.dateTime),
-            vm::togglePlannerTimeMode,
-        )
-        ActionRow(copy.chooseTime, copy.dateTimeHelp, vm::openDateTimeInput)
-        if (preferences.dateTime != null) ActionRow(copy.now, copy.chooseTime, vm::useCurrentTime)
-        Spacer(Modifier.height(0.6f.gridUnitsAsDp()))
-        ActionRow(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), prominent = true, onClick = vm::planJourney)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            ChoiceCard(
+                if (preferences.timeMode == PlannerTimeMode.DEPARTURE) copy.leaving else copy.arriving,
+                copy.whenToTravel,
+                Modifier.weight(1f),
+                vm::togglePlannerTimeMode,
+            )
+            ChoiceCard(
+                preferences.dateTime?.let(::dateTime) ?: copy.now,
+                copy.chooseTime,
+                Modifier.weight(1f),
+                vm::openDateTimeInput,
+            )
+        }
+        if (preferences.dateTime != null) ListAction(copy.now, copy.chooseTime, vm::useCurrentTime)
+        PrimaryAction(copy.plan, routeSummary(state.plannerOrigin, state.plannerDestination), Modifier.fillMaxWidth(), vm::planJourney)
     }
 }
 
@@ -296,11 +320,8 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
 private fun TripsContent(mode: ScreenMode.Trips, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(if (mode.recovery) copy.recovery else copy.planner, vm::openPlanner) {
         if (mode.trips.isEmpty()) Body(copy.noJourneys)
-        mode.trips.forEach { trip ->
-            ActionRow(
-                "${time(trip.departure)}–${time(trip.arrival)}",
-                tripSummary(trip, copy),
-            ) { vm.showTrip(trip, mode.request) }
+        mode.trips.forEachIndexed { index, trip ->
+            JourneyResultCard(index + 1, trip, copy) { vm.showTrip(trip, mode.request) }
         }
     }
 }
@@ -315,8 +336,9 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            PrimaryJourneyAction(
+            PrimaryAction(
                 title = if (active) copy.openActiveJourney else copy.track,
+                detail = "",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     if (active) vm.openActive() else vm.startTracking(trip)
@@ -324,7 +346,7 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
                 },
             )
             mode.request?.let { request ->
-                PrimaryJourneyAction(copy.saveRoute, Modifier.weight(1f)) { vm.saveRoute(request) }
+                PrimaryAction(copy.saveRoute, "", Modifier.weight(1f)) { vm.saveRoute(request) }
             }
         }
         Section(copy.journeyTimeline)
@@ -345,7 +367,7 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.activeJourney, vm::home) {
         JourneyOverview(journey, copy)
-        PrimaryJourneyAction(copy.refresh, Modifier.fillMaxWidth(), vm::manualRefreshActive)
+        PrimaryAction(copy.refresh, copy.live, Modifier.fillMaxWidth(), vm::manualRefreshActive)
         Section(copy.journeyTimeline)
         JourneyTimeline(journey, copy)
         if (journey.disruptions.isNotEmpty()) {
@@ -394,7 +416,12 @@ private fun JourneyEndpoint(time: String, station: String, align: TextAlign, mod
 }
 
 @Composable
-private fun PrimaryJourneyAction(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PrimaryAction(
+    title: String,
+    detail: String = "",
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = modifier
             .padding(vertical = 0.35f.gridUnitsAsDp())
@@ -405,13 +432,25 @@ private fun PrimaryJourneyAction(title: String, modifier: Modifier = Modifier, o
             .padding(horizontal = 0.45f.gridUnitsAsDp()),
         contentAlignment = Alignment.Center,
     ) {
-        LightText(
-            title,
-            LightTextVariant.Paragraph,
-            color = LightThemeTokens.colors.background,
-            align = TextAlign.Center,
-            maxLines = 2,
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            LightText(
+                title,
+                LightTextVariant.Paragraph,
+                color = LightThemeTokens.colors.background,
+                align = TextAlign.Center,
+                maxLines = 2,
+            )
+            if (detail.isNotBlank()) {
+                LightText(
+                    detail,
+                    LightTextVariant.Superfine,
+                    color = LightThemeTokens.colors.background,
+                    monospace = true,
+                    align = TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -610,13 +649,13 @@ private fun JourneyFares(trip: TripOption, copy: Copy) {
 private fun FavouritesContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.favourites, vm::home) {
         Section(copy.favouriteStations)
-        state.persisted.favouriteStations.forEach { station -> ActionRow(station.name) { vm.loadDepartures(station) } }
+        if (state.persisted.favouriteStations.isEmpty()) Body(copy.noFavouriteStations)
+        state.persisted.favouriteStations.forEach { station -> ListAction(station.name, copy.departures) { vm.loadDepartures(station) } }
         Section(copy.favouriteRoutes)
+        if (state.persisted.favouriteRoutes.isEmpty()) Body(copy.noFavouriteRoutes)
         state.persisted.favouriteRoutes.forEach { route ->
-            ActionRow(route.name, route.via?.let { "${copy.via} ${it.name}" }.orEmpty()) { vm.useRoute(route) }
-            ActionRow(copy.removeFavourite, route.name) { vm.removeRoute(route) }
+            FavouriteRouteCard(route, copy, vm)
         }
-        if (state.persisted.favouriteStations.isEmpty() && state.persisted.favouriteRoutes.isEmpty()) Body(copy.noResults)
     }
 }
 
@@ -624,14 +663,23 @@ private fun FavouritesContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwi
 private fun SettingsContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
     ScreenFrame(copy.settings, vm::home) {
         Section("Language / Taal")
-        ActionRow(copy.english, if (state.persisted.language == Language.ENGLISH) "✓" else "") { vm.setLanguage(Language.ENGLISH) }
-        ActionRow(copy.dutch, if (state.persisted.language == Language.DUTCH) "✓" else "") { vm.setLanguage(Language.DUTCH) }
-        Section(copy.alerts)
-        ActionRow(copy.alerts, if (state.persisted.notificationPreferences.alertsEnabled) copy.enabled else copy.disabled, vm::toggleAlerts)
-        ActionRow(copy.guidance, if (state.persisted.notificationPreferences.guidanceEnabled) copy.enabled else copy.disabled, vm::toggleGuidance)
-        Body(copy.notificationsLimited)
-        Section("Worker")
-        Body(if (BuildConfig.WORKER_ACCESS_TOKEN.isBlank()) copy.notConfigured else copy.configured)
+        SegmentedChoices(
+            left = copy.english,
+            right = copy.dutch,
+            leftSelected = state.persisted.language == Language.ENGLISH,
+            onLeft = { vm.setLanguage(Language.ENGLISH) },
+            onRight = { vm.setLanguage(Language.DUTCH) },
+        )
+        Section(copy.notifications)
+        SettingToggle(copy.alerts, state.persisted.notificationPreferences.alertsEnabled, copy, vm::toggleAlerts)
+        SettingToggle(copy.guidance, state.persisted.notificationPreferences.guidanceEnabled, copy, vm::toggleGuidance)
+        Notice(copy.notificationsLimited)
+        Section(copy.connection)
+        StatusPanel(
+            copy.connection,
+            if (BuildConfig.WORKER_ACCESS_TOKEN.isBlank()) copy.notConfigured else copy.configured,
+            connected = BuildConfig.WORKER_ACCESS_TOKEN.isNotBlank(),
+        )
     }
 }
 
@@ -659,16 +707,365 @@ private fun ScreenFrame(title: String, onBack: (() -> Unit)? = null, content: @C
 }
 
 @Composable
-private fun MessageScreen(title: String, message: String, onBack: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxSize()) {
-        LightTopBar(
-            leftButton = onBack?.let { LightBarButton.LightIcon(LightIcons.BACK, onClick = it) },
-            center = LightTopBarCenter.Text(title),
+private fun LiveJourneyCard(journey: TripOption, copy: Copy, onClick: () -> Unit) {
+    val origin = journey.legs.firstOrNull()?.origin?.name.orEmpty()
+    val destination = journey.legs.lastOrNull()?.destination?.name.orEmpty()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 0.55f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.8f.gridUnitsAsDp()),
+    ) {
+        LightText(
+            copy.liveJourney.uppercase(Locale.ROOT),
+            LightTextVariant.Superfine,
+            color = LightThemeTokens.colors.background,
+            monospace = true,
         )
-        Box(Modifier.weight(1f).fillMaxWidth().padding(2f.gridUnitsAsDp()), contentAlignment = Alignment.Center) {
-            LightText(message, LightTextVariant.Copy, align = TextAlign.Center)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 0.25f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LightText(
+                "$origin → $destination",
+                LightTextVariant.Subheading,
+                color = LightThemeTokens.colors.background,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+            )
+            LightText("→", LightTextVariant.Subheading, color = LightThemeTokens.colors.background, monospace = true)
         }
-        if (onBack != null) LightBottomBar(listOf(LightBarButton.LightIcon(LightIcons.BACK, onClick = onBack)))
+        LightText(
+            "${time(journey.departure)}–${time(journey.arrival)} · ${tripSummary(journey, copy)}",
+            LightTextVariant.Detail,
+            color = LightThemeTokens.colors.background,
+            modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
+            maxLines = 2,
+        )
+    }
+}
+
+@Composable
+private fun HomeShortcut(index: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .padding(vertical = 0.25f.gridUnitsAsDp())
+            .height(3.15f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.55f.gridUnitsAsDp()),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            LightText(index, LightTextVariant.Superfine, monospace = true, lighten = true)
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
+        }
+        LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
+    }
+}
+
+@Composable
+private fun ListAction(title: String, detail: String = "", onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.35f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
+                if (detail.isNotBlank()) LightText(detail, LightTextVariant.Detail, lighten = true, maxLines = 2)
+            }
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
+        }
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 0.45f.gridUnitsAsDp())
+                .height(1f.designVerticalPxToDp())
+                .background(LightThemeTokens.colors.contentSecondary),
+        )
+    }
+}
+
+@Composable
+private fun ListLabel(title: String, detail: String = "") {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 0.35f.gridUnitsAsDp(), vertical = 0.45f.gridUnitsAsDp())) {
+        LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
+        if (detail.isNotBlank()) LightText(detail, LightTextVariant.Detail, lighten = true, maxLines = 2)
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 0.4f.gridUnitsAsDp())
+                .height(1f.designVerticalPxToDp())
+                .background(LightThemeTokens.colors.contentSecondary),
+        )
+    }
+}
+
+@Composable
+private fun PlannerRouteCard(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerViewModel) {
+    Column(Modifier.fillMaxWidth().border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)) {
+        PlannerField("A", copy.origin, state.plannerOrigin?.name ?: copy.chooseStation, divider = true) {
+            vm.openStationSearch(StationPurpose.ORIGIN)
+        }
+        PlannerField("B", copy.destination, state.plannerDestination?.name ?: copy.chooseStation, divider = true) {
+            vm.openStationSearch(StationPurpose.DESTINATION)
+        }
+        PlannerField("V", copy.via, state.plannerVia?.name ?: copy.chooseStation, divider = false) {
+            vm.openStationSearch(StationPurpose.VIA)
+        }
+    }
+}
+
+@Composable
+private fun PlannerField(marker: String, label: String, value: String, divider: Boolean, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().lightClickable(onClick = onClick).padding(horizontal = 0.7f.gridUnitsAsDp())) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 0.55f.gridUnitsAsDp()), verticalAlignment = Alignment.CenterVertically) {
+            Badge(marker, inverted = true)
+            Column(Modifier.weight(1f).padding(start = 0.6f.gridUnitsAsDp())) {
+                LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
+                LightText(value, LightTextVariant.ParagraphWide, maxLines = 2)
+            }
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
+        }
+        if (divider) Spacer(Modifier.fillMaxWidth().height(1f.designVerticalPxToDp()).background(LightThemeTokens.colors.contentSecondary))
+    }
+}
+
+@Composable
+private fun ChoiceCard(title: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier
+            .padding(vertical = 0.25f.gridUnitsAsDp())
+            .height(2.85f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.55f.gridUnitsAsDp()),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true, maxLines = 1)
+        LightText(title, LightTextVariant.ParagraphWide, maxLines = 2)
+    }
+}
+
+@Composable
+private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.3f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.7f.gridUnitsAsDp()),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Badge(index.toString().padStart(2, '0'), inverted = true)
+            LightText(
+                "${time(trip.departure)}–${time(trip.arrival)}",
+                LightTextVariant.Subheading,
+                monospace = true,
+                modifier = Modifier.weight(1f).padding(start = 0.65f.gridUnitsAsDp()),
+            )
+            LightText("→", LightTextVariant.Subheading, monospace = true)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 0.45f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LightText("${trip.durationMinutes} ${copy.minutes}", LightTextVariant.Detail, lighten = true)
+            Badge(if (trip.transfers == 0) copy.direct else "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}")
+            if (trip.delayMinutes > 0) Badge("+${trip.delayMinutes} ${copy.minutes}", inverted = true)
+        }
+    }
+}
+
+@Composable
+private fun DepartureHero(departure: Departure, copy: Copy) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(0.8f.gridUnitsAsDp()),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            LightText(time(departure.actualDateTime), LightTextVariant.Subheading, monospace = true)
+            LightText(departure.direction, LightTextVariant.Subheading, align = TextAlign.End, modifier = Modifier.weight(1f), maxLines = 2)
+        }
+        TrainPlatformBadges(departure.trainType, departure.trainNumber, departure.actualTrack ?: departure.plannedTrack, copy)
+        departureStatus(departure, copy)?.let { status ->
+            LightText(status, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()))
+        }
+        LightText(dateTime(departure.actualDateTime), LightTextVariant.Detail, lighten = true, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()))
+    }
+}
+
+@Composable
+private fun DepartureStopRow(stop: DepartureStop, first: Boolean, last: Boolean, copy: Copy) {
+    val value = stop.actualDeparture ?: stop.actualArrival ?: stop.plannedDeparture ?: stop.plannedArrival.orEmpty()
+    val platform = stop.actualPlatform ?: stop.plannedPlatform
+    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp()), verticalAlignment = Alignment.Top) {
+        TimelineTime(value.takeIf(String::isNotBlank)?.let(::time).orEmpty())
+        Box(Modifier.width(0.75f.gridUnitsAsDp()), contentAlignment = Alignment.TopCenter) {
+            LightText(if (first || last) "■" else "□", LightTextVariant.Superfine, monospace = true)
+        }
+        Column(Modifier.weight(1f)) {
+            LightText(stop.name, LightTextVariant.ParagraphWide, maxLines = 2)
+            platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 0.45f.gridUnitsAsDp())
+                    .height(1f.designVerticalPxToDp())
+                    .background(LightThemeTokens.colors.contentSecondary),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.3f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.7f.gridUnitsAsDp()),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Badge(disruption.severity, inverted = true)
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
+        }
+        LightText(disruption.title, LightTextVariant.ParagraphWide, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()), maxLines = 3)
+        disruption.trajectories.firstOrNull()?.let {
+            LightText(it, LightTextVariant.Detail, lighten = true, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun DisruptionHero(disruption: Disruption) {
+    Column(Modifier.fillMaxWidth().background(LightThemeTokens.colors.content).padding(0.8f.gridUnitsAsDp())) {
+        LightText(disruption.severity.uppercase(Locale.ROOT), LightTextVariant.Superfine, color = LightThemeTokens.colors.background, monospace = true)
+        LightText(disruption.title, LightTextVariant.Subheading, color = LightThemeTokens.colors.background, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 4)
+        LightText(disruption.type, LightTextVariant.Detail, color = LightThemeTokens.colors.background, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
+    }
+}
+
+@Composable
+private fun Notice(text: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 0.4f.gridUnitsAsDp()).height(IntrinsicSize.Min)) {
+        Spacer(Modifier.width(4f.designVerticalPxToDp()).fillMaxHeight().background(LightThemeTokens.colors.content))
+        LightText(text, LightTextVariant.Paragraph, modifier = Modifier.padding(start = 0.65f.gridUnitsAsDp()), maxLines = 8)
+    }
+}
+
+@Composable
+private fun FavouriteRouteCard(route: FavouriteRoute, copy: Copy, vm: TreinwijzerViewModel) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.3f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(0.7f.gridUnitsAsDp()),
+    ) {
+        LightText(route.name, LightTextVariant.ParagraphWide, maxLines = 2)
+        route.via?.let { LightText("${copy.via} ${it.name}", LightTextVariant.Detail, lighten = true, maxLines = 2) }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 0.35f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            PrimaryAction(copy.useRoute, "", Modifier.weight(1f)) { vm.useRoute(route) }
+            UtilityAction("×", copy.removeFavourite, Modifier.weight(1f)) { vm.removeRoute(route) }
+        }
+    }
+}
+
+@Composable
+private fun SegmentedChoices(
+    left: String,
+    right: String,
+    leftSelected: Boolean,
+    onLeft: () -> Unit,
+    onRight: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp())) {
+        SegmentChoice(left, leftSelected, Modifier.weight(1f), onLeft)
+        SegmentChoice(right, !leftSelected, Modifier.weight(1f), onRight)
+    }
+}
+
+@Composable
+private fun SegmentChoice(title: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val background = if (selected) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (selected) LightThemeTokens.colors.background else LightThemeTokens.colors.content
+    Box(
+        modifier
+            .height(1.7f.gridUnitsAsDp())
+            .background(background)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(title, LightTextVariant.Paragraph, color = foreground, align = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun SettingToggle(title: String, enabled: Boolean, copy: Copy, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.25f.gridUnitsAsDp())
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(0.7f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightText(title, LightTextVariant.ParagraphWide, modifier = Modifier.weight(1f), maxLines = 2)
+        Badge(if (enabled) copy.enabled else copy.disabled, inverted = enabled)
+    }
+}
+
+@Composable
+private fun StatusPanel(title: String, detail: String, connected: Boolean) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(0.7f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            LightText(title, LightTextVariant.ParagraphWide)
+            LightText(detail, LightTextVariant.Detail, lighten = true, maxLines = 3)
+        }
+        Badge(if (connected) "OK" else "—", inverted = connected)
+    }
+}
+
+@Composable
+private fun MessageScreen(title: String, message: String, onBack: (() -> Unit)? = null) {
+    ScreenFrame(title, onBack) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 2.5f.gridUnitsAsDp())
+                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+                .padding(1.25f.gridUnitsAsDp()),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                LightText("—", LightTextVariant.Title, monospace = true)
+                LightText(message, LightTextVariant.Paragraph, align = TextAlign.Center)
+            }
+        }
     }
 }
 
@@ -692,27 +1089,36 @@ private fun PickerShortcut(
 }
 
 @Composable
-private fun MenuAction(index: String, title: String, detail: String, onClick: () -> Unit) {
+private fun MenuAction(
+    index: String,
+    title: String,
+    detail: String,
+    prominent: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val background = if (prominent) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (prominent) LightThemeTokens.colors.background else LightThemeTokens.colors.content
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 0.3f.gridUnitsAsDp())
+            .background(background)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
             .padding(0.7f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Badge(index, inverted = true)
+        Badge(index, inverted = !prominent)
         Column(Modifier.weight(1f).padding(horizontal = 0.7f.gridUnitsAsDp())) {
-            LightText(title, LightTextVariant.Subheading, maxLines = 1)
-            LightText(detail, LightTextVariant.Detail, lighten = true, maxLines = 2)
+            LightText(title, LightTextVariant.Subheading, color = foreground, maxLines = 1)
+            LightText(detail, LightTextVariant.Detail, color = foreground, lighten = !prominent, maxLines = 2)
         }
-        LightText("→", LightTextVariant.Subheading, monospace = true)
+        LightText("→", LightTextVariant.Subheading, color = foreground, monospace = true)
     }
 }
 
 @Composable
-private fun CompactAction(marker: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun UtilityAction(marker: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
         modifier = modifier
             .padding(vertical = 0.3f.gridUnitsAsDp())
