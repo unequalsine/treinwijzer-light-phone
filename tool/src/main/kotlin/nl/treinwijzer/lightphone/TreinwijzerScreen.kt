@@ -1166,9 +1166,43 @@ private fun FavouriteRouteCard(route: FavouriteRoute, copy: Copy, vm: Treinwijze
             Modifier.fillMaxWidth().padding(top = 0.35f.gridUnitsAsDp()),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            PrimaryAction(copy.useRoute, "", Modifier.weight(1f)) { vm.useRoute(route) }
-            UtilityAction("×", copy.removeFavourite, Modifier.weight(1f)) { vm.removeRoute(route) }
+            FavouriteRouteAction("", copy.useRoute, prominent = true, modifier = Modifier.weight(1f)) { vm.useRoute(route) }
+            FavouriteRouteAction("×", copy.removeFavourite, prominent = false, modifier = Modifier.weight(1f)) { vm.removeRoute(route) }
         }
+    }
+}
+
+@Composable
+private fun FavouriteRouteAction(
+    marker: String,
+    title: String,
+    prominent: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val background = if (prominent) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (prominent) LightThemeTokens.colors.background else LightThemeTokens.colors.content
+    Row(
+        modifier
+            .height(2.15f.gridUnitsAsDp())
+            .background(background)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .lightClickable(onClick = onClick)
+            .padding(horizontal = 0.45f.gridUnitsAsDp()),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (marker.isNotBlank()) {
+            LightText(marker, LightTextVariant.Paragraph, color = foreground, monospace = true)
+        }
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            color = foreground,
+            align = TextAlign.Center,
+            modifier = if (marker.isBlank()) Modifier else Modifier.padding(start = 0.35f.gridUnitsAsDp()),
+            maxLines = 2,
+        )
     }
 }
 
