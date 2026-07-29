@@ -502,10 +502,11 @@ private fun TimelineStation(
     delayMinutes: Int,
     cancelled: Boolean,
     copy: Copy,
+    markerInverted: Boolean = false,
 ) {
     Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp())) {
         TimelineTime(time(actualTime))
-        TimelineMarker()
+        TimelineMarker(inverted = markerInverted)
         Column(Modifier.weight(1f)) {
             LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
             LightText(station, LightTextVariant.ParagraphWide, maxLines = 2)
@@ -560,38 +561,82 @@ private fun TimelineRide(leg: TripLeg, copy: Copy) {
 
 @Composable
 private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: Copy) {
-    val transferDuration = transferMinutes(arrivingLeg, departingLeg)?.let { " · $it ${copy.minutes}" }.orEmpty()
-    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp())) {
-        TimelineTime(time(arrivingLeg.actualArrival))
-        TimelineMarker(inverted = true)
-        Column(
-            Modifier
-                .weight(1f)
-                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-                .padding(0.55f.gridUnitsAsDp()),
-        ) {
-            LightText(
-                "${copy.transfer.uppercase(Locale.ROOT)}$transferDuration",
-                LightTextVariant.Superfine,
-                monospace = true,
-            )
-            LightText(arrivingLeg.destination.name, LightTextVariant.ParagraphWide, maxLines = 2)
-            TimelineConnection(copy.arriving, arrivingLeg.actualArrival, arrivingLeg.actualArrivalPlatform ?: arrivingLeg.plannedArrivalPlatform, copy)
-            TimelineConnection(copy.leaving, departingLeg.actualDeparture, departingLeg.actualDeparturePlatform ?: departingLeg.plannedDeparturePlatform, copy)
-        }
-    }
+    val station = arrivingLeg.destination.name
+    val arrivalPlatform = arrivingLeg.actualArrivalPlatform ?: arrivingLeg.plannedArrivalPlatform
+    val departurePlatform = departingLeg.actualDeparturePlatform ?: departingLeg.plannedDeparturePlatform
+
+    TimelineStation(
+        label = copy.arriving,
+        station = station,
+        actualTime = arrivingLeg.actualArrival,
+        plannedTime = arrivingLeg.plannedArrival,
+        platform = arrivalPlatform,
+        delayMinutes = arrivingLeg.arrivalDelayMinutes,
+        cancelled = arrivingLeg.cancelled,
+        copy = copy,
+        markerInverted = true,
+    )
+    TimelineTransferWait(
+        durationMinutes = transferMinutes(arrivingLeg, departingLeg),
+        arrivalPlatform = arrivalPlatform,
+        departurePlatform = departurePlatform,
+        copy = copy,
+    )
+    TimelineStation(
+        label = copy.leaving,
+        station = station,
+        actualTime = departingLeg.actualDeparture,
+        plannedTime = departingLeg.plannedDeparture,
+        platform = departurePlatform,
+        delayMinutes = departingLeg.departureDelayMinutes,
+        cancelled = departingLeg.cancelled,
+        copy = copy,
+    )
 }
 
 @Composable
-private fun TimelineConnection(label: String, value: String, platform: String?, copy: Copy) {
-    val platformText = platform?.takeIf(String::isNotBlank)?.let { " · ${copy.platform} $it" }.orEmpty()
-    LightText(
-        "$label ${time(value)}$platformText",
-        LightTextVariant.Detail,
-        lighten = true,
-        modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
-        maxLines = 2,
-    )
+private fun TimelineTransferWait(
+    durationMinutes: Int?,
+    arrivalPlatform: String?,
+    departurePlatform: String?,
+    copy: Copy,
+) {
+    val duration = durationMinutes?.let { "$it ${copy.minutes.uppercase(Locale.ROOT)} " }.orEmpty()
+    val platformChange = when {
+        !arrivalPlatform.isNullOrBlank() && !departurePlatform.isNullOrBlank() && arrivalPlatform != departurePlatform ->
+            "${copy.platform} $arrivalPlatform → ${copy.platform} $departurePlatform"
+        !departurePlatform.isNullOrBlank() -> "${copy.platform} $departurePlatform"
+        !arrivalPlatform.isNullOrBlank() -> "${copy.platform} $arrivalPlatform"
+        else -> ""
+    }
+
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Spacer(Modifier.width(3.5f.gridUnitsAsDp()))
+        TimelineLine()
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.2f.gridUnitsAsDp(), bottom = 0.2f.gridUnitsAsDp())
+                .background(LightThemeTokens.colors.content)
+                .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.45f.gridUnitsAsDp()),
+        ) {
+            LightText(
+                "$duration${copy.transfer.uppercase(Locale.ROOT)}",
+                LightTextVariant.Paragraph,
+                color = LightThemeTokens.colors.background,
+                monospace = true,
+            )
+            if (platformChange.isNotBlank()) {
+                LightText(
+                    platformChange,
+                    LightTextVariant.Detail,
+                    color = LightThemeTokens.colors.background,
+                    modifier = Modifier.padding(top = 0.15f.gridUnitsAsDp()),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
 }
 
 @Composable
