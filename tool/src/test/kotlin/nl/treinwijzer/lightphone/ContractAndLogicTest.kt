@@ -57,6 +57,10 @@ class ContractAndLogicTest {
         assertEquals(listOf("GVC", "HT"), TreinwijzerViewModel.filterStationsByLetter(stations, "H").map(Station::code))
         assertEquals(listOf("HT"), TreinwijzerViewModel.filterStationsByLetter(stations, "S").map(Station::code))
         assertEquals(listOf("ASD"), TreinwijzerViewModel.filterStationsByLetter(stations, "a").map(Station::code))
+        assertEquals(
+            listOf("A", "B", "D", "H", "S"),
+            TreinwijzerViewModel.availableStationIndexLetters(stations),
+        )
     }
 
     @Test

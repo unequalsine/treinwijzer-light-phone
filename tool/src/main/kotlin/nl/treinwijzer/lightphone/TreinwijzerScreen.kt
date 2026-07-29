@@ -74,7 +74,12 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     ScreenMode.Loading -> MessageScreen(copy.app, copy.loading)
                     ScreenMode.Home -> HomeContent(state, copy, viewModel)
                     is ScreenMode.StationPicker -> StationPickerContent(mode, state, copy, viewModel)
-                    is ScreenMode.StationIndex -> StationIndexContent(mode, copy, viewModel)
+                    is ScreenMode.StationIndex -> StationIndexContent(
+                        mode,
+                        state.persisted.stations,
+                        copy,
+                        viewModel,
+                    )
                     is ScreenMode.StationResults -> StationResultsContent(mode, copy, viewModel)
                     is ScreenMode.StationRecents -> StationRecentsContent(mode, copy, viewModel)
                     is ScreenMode.StationNearestUnavailable -> MessageScreen(
@@ -168,10 +173,17 @@ private fun StationPickerContent(
 }
 
 @Composable
-private fun StationIndexContent(mode: ScreenMode.StationIndex, copy: Copy, vm: TreinwijzerViewModel) {
+private fun StationIndexContent(
+    mode: ScreenMode.StationIndex,
+    stations: List<Station>,
+    copy: Copy,
+    vm: TreinwijzerViewModel,
+) {
+    val availableLetters = TreinwijzerViewModel.availableStationIndexLetters(stations)
     ScreenFrame(copy.stationIndex, vm::back) {
         Section(copy.chooseLetter)
-        stationLetters.chunked(3).forEach { rowLetters ->
+        if (availableLetters.isEmpty()) Body(copy.noResults)
+        availableLetters.chunked(3).forEach { rowLetters ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
@@ -1571,12 +1583,19 @@ private fun LetterButton(letter: String, modifier: Modifier = Modifier, onClick:
     Box(
         modifier = modifier
             .padding(vertical = 0.18f.gridUnitsAsDp())
-            .height(1.15f.gridUnitsAsDp())
+            .height(1.55f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.content)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .lightClickable(onClick = onClick),
+            .lightClickable(onClick = onClick)
+            .padding(vertical = 0.2f.gridUnitsAsDp()),
         contentAlignment = Alignment.Center,
     ) {
-        LightText(letter, LightTextVariant.Subheading, monospace = true)
+        LightText(
+            letter,
+            LightTextVariant.Subheading,
+            color = LightThemeTokens.colors.background,
+            monospace = true,
+        )
     }
 }
 
@@ -1736,7 +1755,6 @@ private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
 private const val timelineTransferGapGridUnits = 0.45f
-private val stationLetters = ('A'..'Z').map { it.toString() }
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
 private val compactOffsetFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")

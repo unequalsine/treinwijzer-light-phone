@@ -601,6 +601,13 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
                 .sortedBy { normalise(it.name) }
         }
 
+        internal fun availableStationIndexLetters(stations: List<Station>): List<String> =
+            stations
+                .flatMap(::stationIndexLetters)
+                .filter { it.length == 1 && it.first() in 'A'..'Z' }
+                .distinct()
+                .sorted()
+
         private fun stationIndexLetters(station: Station): Set<String> = buildSet {
             (listOf(station.name) + station.synonyms).forEach { name ->
                 val tokens = normalise(name).split(' ').filter(String::isNotBlank)
