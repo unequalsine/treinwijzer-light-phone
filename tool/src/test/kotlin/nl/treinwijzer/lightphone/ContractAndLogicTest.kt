@@ -131,6 +131,20 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun disruptionCategoriesNeverExposeRawSeverityCodes() {
+        val disruption = Disruption(
+            id = "disruption-1",
+            title = "Engineering works",
+            type = "ENGINEERING_WORKS",
+            severity = "2",
+        )
+
+        assertEquals("Engineering works", disruptionCategory(disruption))
+        assertEquals(null, disruptionCategory(disruption.copy(type = "unknown", severity = "1")))
+        assertEquals(null, disruptionCategory(disruption.copy(type = "", severity = "UNKNOWN")))
+    }
+
+    @Test
     fun bothLocalisationsCoverSdkLimitations() {
         assertTrue(Copy(Language.ENGLISH).nearestUnavailable.contains("not supported"))
         assertTrue(Copy(Language.DUTCH).nearestUnavailable.contains("niet ondersteund"))

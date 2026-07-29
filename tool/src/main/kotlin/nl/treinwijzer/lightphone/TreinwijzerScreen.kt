@@ -359,7 +359,11 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
         JourneyFares(trip, copy)
         if (trip.disruptions.isNotEmpty()) {
             Section(copy.disruptions)
-            trip.disruptions.forEach { ActionRow(it.title, it.severity) { vm.showDisruption(it) } }
+            trip.disruptions.forEach { disruption ->
+                ActionRow(disruption.title, disruptionCategory(disruption).orEmpty()) {
+                    vm.showDisruption(disruption)
+                }
+            }
         }
         if (trip.legs.size > 1) {
             Section(copy.more)
@@ -1123,8 +1127,13 @@ private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
             .lightClickable(onClick = onClick)
             .padding(0.7f.gridUnitsAsDp()),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Badge(disruption.severity, inverted = true)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            disruptionCategory(disruption)?.let { Badge(it, inverted = true) }
+                ?: Spacer(Modifier.weight(1f))
             LightText("→", LightTextVariant.Paragraph, monospace = true)
         }
         LightText(disruption.title, LightTextVariant.ParagraphWide, modifier = Modifier.padding(top = 0.4f.gridUnitsAsDp()), maxLines = 3)
@@ -1136,11 +1145,33 @@ private fun DisruptionCard(disruption: Disruption, onClick: () -> Unit) {
 
 @Composable
 private fun DisruptionHero(disruption: Disruption) {
+    val category = disruptionCategory(disruption)
     Column(Modifier.fillMaxWidth().background(LightThemeTokens.colors.content).padding(0.8f.gridUnitsAsDp())) {
-        LightText(disruption.severity.uppercase(Locale.ROOT), LightTextVariant.Superfine, color = LightThemeTokens.colors.background, monospace = true)
-        LightText(disruption.title, LightTextVariant.Subheading, color = LightThemeTokens.colors.background, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 4)
-        LightText(disruption.type, LightTextVariant.Detail, color = LightThemeTokens.colors.background, modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()), maxLines = 2)
+        category?.let {
+            LightText(it.uppercase(Locale.ROOT), LightTextVariant.Superfine, color = LightThemeTokens.colors.background, monospace = true)
+        }
+        LightText(
+            disruption.title,
+            LightTextVariant.Subheading,
+            color = LightThemeTokens.colors.background,
+            modifier = if (category != null) Modifier.padding(top = 0.3f.gridUnitsAsDp()) else Modifier,
+            maxLines = 4,
+        )
     }
+}
+
+internal fun disruptionCategory(disruption: Disruption): String? {
+    val type = disruption.type.trim()
+    if (type.isBlank() || type.equals("unknown", ignoreCase = true)) return null
+
+    return type
+        .replace(Regex("([a-z])([A-Z])"), "$1 $2")
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .lowercase(Locale.ROOT)
+        .replaceFirstChar { character ->
+            if (character.isLowerCase()) character.titlecase(Locale.ROOT) else character.toString()
+        }
 }
 
 @Composable
