@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -132,7 +134,6 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
         MenuAction(
             LightIcons.MAP,
             copy.planner,
-            "${copy.origin} → ${copy.destination}",
             prominent = true,
             onClick = vm::openPlanner,
         )
@@ -1659,7 +1660,6 @@ private fun PickerShortcut(
 private fun MenuAction(
     icon: LightIconConfiguration,
     title: String,
-    detail: String,
     prominent: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -1675,28 +1675,25 @@ private fun MenuAction(
             .padding(0.7f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        HomeMenuIcon(icon, framed = prominent)
+        HomeMenuIcon(icon, inverted = prominent)
         Column(Modifier.weight(1f).padding(horizontal = 0.7f.gridUnitsAsDp())) {
             LightText(title, LightTextVariant.Subheading, color = foreground, maxLines = 1)
-            LightText(detail, LightTextVariant.Detail, color = foreground, lighten = !prominent, maxLines = 2)
         }
         LightText("→", LightTextVariant.Subheading, color = foreground, monospace = true)
     }
 }
 
 @Composable
-private fun HomeMenuIcon(icon: LightIconConfiguration, framed: Boolean = false) {
-    if (framed) {
-        Box(
-            Modifier
-                .width(1.65f.gridUnitsAsDp())
-                .height(1.1f.gridUnitsAsDp())
-                .background(LightThemeTokens.colors.background)
-                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
-            contentAlignment = Alignment.Center,
-        ) {
-            LightIcon(icon, size = 0.82f, contentDescription = null)
-        }
+private fun HomeMenuIcon(icon: LightIconConfiguration, inverted: Boolean = false) {
+    if (inverted) {
+        Icon(
+            painter = painterResource(icon.drawableResource),
+            contentDescription = null,
+            tint = LightThemeTokens.colors.background,
+            modifier = Modifier
+                .width(0.9f.gridUnitsAsDp())
+                .height(0.9f.gridUnitsAsDp()),
+        )
     } else {
         LightIcon(icon, size = 0.9f, contentDescription = null)
     }
