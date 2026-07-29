@@ -1264,12 +1264,19 @@ private fun PickerShortcut(
         modifier = modifier
             .padding(vertical = 0.18f.gridUnitsAsDp())
             .height(1.8f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.content)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
             .padding(horizontal = 0.25f.gridUnitsAsDp()),
         contentAlignment = Alignment.Center,
     ) {
-        LightText(title, LightTextVariant.Paragraph, align = TextAlign.Center, maxLines = 2)
+        LightText(
+            title,
+            LightTextVariant.Paragraph,
+            color = LightThemeTokens.colors.background,
+            align = TextAlign.Center,
+            maxLines = 2,
+        )
     }
 }
 
