@@ -360,22 +360,20 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     fun showTrip(trip: TripOption, request: PlannerRequest?) = updateMode(ScreenMode.TripDetails(trip, request))
 
-    fun loadRecovery(trip: TripOption) {
-        val transferLeg = trip.legs.firstOrNull() ?: return
-        if (trip.legs.size < 2) return
+    internal fun loadRecovery(route: JourneyRecoveryRoute) {
         launchBusy {
             val state = _uiState.value.persisted
             val options = api.recoveryTrips(
                 state.identity(),
-                transferLeg.destination,
-                trip.legs.last().destination,
-                transferLeg.actualArrival,
+                route.from,
+                route.to,
+                route.dateTime.toString(),
                 state.language,
             )
             val request = PlannerRequest(
-                stationFor(transferLeg.destination, state.stations),
-                stationFor(trip.legs.last().destination, state.stations),
-                dateTime = transferLeg.actualArrival,
+                stationFor(route.from, state.stations),
+                stationFor(route.to, state.stations),
+                dateTime = route.dateTime.toString(),
             )
             updateMode(ScreenMode.Trips(request, options, recovery = true))
         }

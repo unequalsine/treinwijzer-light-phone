@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import kotlin.test.Test
@@ -70,6 +71,53 @@ class ContractAndLogicTest {
         val match = TreinwijzerViewModel.matchJourney(original, listOf(changed))
         assertNotNull(match)
         assertEquals(9, match.delayMinutes)
+    }
+
+    @Test
+    fun recoveryJourneyUsesCurrentTransferInMultiTransferJourney() {
+        val trip = multiTransferTrip()
+
+        val route = trip.activeRecoveryRoute(Instant.parse("2026-07-29T19:01:30Z"))
+
+        assertNotNull(route)
+        assertEquals("GVC", route.from.code)
+        assertEquals("ASD", route.to.code)
+        assertEquals(Instant.parse("2026-07-29T19:01:30Z"), route.dateTime)
+    }
+
+    @Test
+    fun recoveryJourneyUsesNextStationWhileTravellingAfterFirstTransfer() {
+        val trip = multiTransferTrip()
+
+        val route = trip.activeRecoveryRoute(Instant.parse("2026-07-29T18:55:00Z"))
+
+        assertNotNull(route)
+        assertEquals("GVC", route.from.code)
+        assertEquals(Instant.parse("2026-07-29T19:00:00Z"), route.dateTime)
+    }
+
+    @Test
+    fun recoveryJourneyIsUnavailableOnFinalLeg() {
+        val route = multiTransferTrip().activeRecoveryRoute(Instant.parse("2026-07-29T19:10:00Z"))
+
+        assertEquals(null, route)
+    }
+
+    @Test
+    fun recoveryJourneyKeepsMissedConnectionStation() {
+        val trip = multiTransferTrip().let { journey ->
+            journey.copy(
+                legs = journey.legs.mapIndexed { index, leg ->
+                    if (index == 1) leg.copy(actualDeparture = "2026-07-29T18:49:00Z") else leg
+                },
+            )
+        }
+
+        val route = trip.activeRecoveryRoute(Instant.parse("2026-07-29T19:01:30Z"))
+
+        assertNotNull(route)
+        assertEquals("UT", route.from.code)
+        assertEquals(Instant.parse("2026-07-29T18:50:00Z"), route.dateTime)
     }
 
     @Test
@@ -264,6 +312,51 @@ class ContractAndLogicTest {
         assertTrue(Copy(Language.ENGLISH).nearestUnavailable.contains("not supported"))
         assertTrue(Copy(Language.DUTCH).nearestUnavailable.contains("niet ondersteund"))
         assertTrue(Copy(Language.ENGLISH).notificationsLimited.contains("closed"))
+    }
+
+    private fun multiTransferTrip(): TripOption {
+        val original = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
+        val template = original.legs.single()
+        val zoetermeer = StationStop("ZTM", "Zoetermeer")
+        val utrecht = StationStop("UT", "Utrecht Centraal")
+        val denHaag = StationStop("GVC", "Den Haag Centraal")
+        val amsterdam = StationStop("ASD", "Amsterdam Centraal")
+        return original.copy(
+            departure = "2026-07-29T18:35:00Z",
+            plannedDeparture = "2026-07-29T18:35:00Z",
+            arrival = "2026-07-29T19:30:00Z",
+            plannedArrival = "2026-07-29T19:30:00Z",
+            transfers = 2,
+            legs = listOf(
+                template.copy(
+                    id = "leg-1",
+                    origin = zoetermeer,
+                    destination = utrecht,
+                    plannedDeparture = "2026-07-29T18:35:00Z",
+                    actualDeparture = "2026-07-29T18:35:00Z",
+                    plannedArrival = "2026-07-29T18:50:00Z",
+                    actualArrival = "2026-07-29T18:50:00Z",
+                ),
+                template.copy(
+                    id = "leg-2",
+                    origin = utrecht,
+                    destination = denHaag,
+                    plannedDeparture = "2026-07-29T18:52:00Z",
+                    actualDeparture = "2026-07-29T18:52:00Z",
+                    plannedArrival = "2026-07-29T19:00:00Z",
+                    actualArrival = "2026-07-29T19:00:00Z",
+                ),
+                template.copy(
+                    id = "leg-3",
+                    origin = denHaag,
+                    destination = amsterdam,
+                    plannedDeparture = "2026-07-29T19:02:00Z",
+                    actualDeparture = "2026-07-29T19:02:00Z",
+                    plannedArrival = "2026-07-29T19:30:00Z",
+                    actualArrival = "2026-07-29T19:30:00Z",
+                ),
+            ),
+        )
     }
 
     private fun fixture(name: String): String = requireNotNull(

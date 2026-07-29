@@ -500,9 +500,9 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
                 }
             }
         }
-        if (trip.legs.size > 1) {
+        trip.firstTransferRecoveryRoute()?.let { recoveryRoute ->
             Section(copy.more)
-            ActionRow(copy.recovery, trip.legs.first().destination.name) { vm.loadRecovery(trip) }
+            ActionRow(copy.recovery, recoveryRoute.from.name) { vm.loadRecovery(recoveryRoute) }
         }
     }
 }
@@ -522,9 +522,9 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
                 }
             }
         }
-        if (journey.legs.size > 1) {
+        journey.activeRecoveryRoute(Instant.now())?.let { recoveryRoute ->
             Section(copy.more)
-            ActionRow(copy.recovery, journey.legs.first().destination.name) { vm.loadRecovery(journey) }
+            ActionRow(copy.recovery, recoveryRoute.from.name) { vm.loadRecovery(recoveryRoute) }
         }
         ActionRow(copy.stopTracking, copy.activeJourney, vm::stopTracking)
     }
