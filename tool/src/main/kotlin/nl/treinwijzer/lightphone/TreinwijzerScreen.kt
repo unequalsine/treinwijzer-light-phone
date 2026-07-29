@@ -619,14 +619,22 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        TimelineTime(time(actualTime), delayMinutes, Modifier.padding(top = 0.35f.gridUnitsAsDp()))
+        TimelineTime(time(actualTime), delayMinutes, Modifier.padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()))
         TimelineRail(
             connectAbove = connectAbove,
             connectBelow = connectBelow,
             markerInverted = markerInverted,
-            markerTopPadding = 0.35f,
+            markerTopPadding = timelineStationTopPaddingGridUnits,
         )
-        Column(Modifier.weight(1f).padding(vertical = 0.35f.gridUnitsAsDp())) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(
+                    start = timelineContentPaddingGridUnits.gridUnitsAsDp(),
+                    top = timelineStationTopPaddingGridUnits.gridUnitsAsDp(),
+                    bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
+                ),
+        ) {
             LightText(station, LightTextVariant.ParagraphWide, maxLines = 2)
             Row(
                 modifier = Modifier.padding(top = 0.3f.gridUnitsAsDp()),
@@ -657,7 +665,11 @@ private fun TimelineRide(leg: TripLeg, copy: Copy) {
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.35f.gridUnitsAsDp(), bottom = 0.7f.gridUnitsAsDp()),
+                .padding(
+                    start = timelineContentPaddingGridUnits.gridUnitsAsDp(),
+                    top = timelineRideTopPaddingGridUnits.gridUnitsAsDp(),
+                    bottom = timelineRideBottomPaddingGridUnits.gridUnitsAsDp(),
+                ),
         ) {
             TrainPlatformBadges(leg.trainType, leg.trainNumber, null, copy)
             leg.serviceDestinationName?.takeIf(String::isNotBlank)?.let {
@@ -693,7 +705,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         copy = copy,
         markerInverted = true,
         connectAbove = true,
-        connectBelow = true,
+        connectBelow = false,
     )
     TimelineTransferWait(
         durationMinutes = transferMinutes(arrivingLeg, departingLeg),
@@ -710,7 +722,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         delayMinutes = departingLeg.departureDelayMinutes,
         cancelled = departingLeg.cancelled,
         copy = copy,
-        connectAbove = true,
+        connectAbove = false,
         connectBelow = true,
     )
 }
@@ -731,15 +743,21 @@ private fun TimelineTransferWait(
         else -> ""
     }
 
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
-        TimelineRail(true, true, false, 0.55f)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = timelineTransferGapGridUnits.gridUnitsAsDp()),
+    ) {
+        Spacer(
+            Modifier.width(
+                (timelineTimeColumnGridUnits + timelineRailColumnGridUnits + timelineContentPaddingGridUnits).gridUnitsAsDp(),
+            ),
+        )
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 0.35f.gridUnitsAsDp(), top = 0.35f.gridUnitsAsDp(), bottom = 0.35f.gridUnitsAsDp())
                 .background(LightThemeTokens.colors.content)
-                .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.45f.gridUnitsAsDp()),
+                .padding(horizontal = 0.7f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
         ) {
             LightText(
                 "$duration${copy.transfer.uppercase(Locale.ROOT)}",
@@ -763,7 +781,9 @@ private fun TimelineTransferWait(
 @Composable
 private fun TimelineTime(value: String, delayMinutes: Int = 0, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
+        modifier = modifier
+            .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+            .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
         horizontalAlignment = Alignment.End,
     ) {
         LightText(value, LightTextVariant.ParagraphWide, monospace = true, maxLines = 1)
@@ -779,7 +799,7 @@ private fun TimelineRail(
     markerTopPadding: Float,
 ) {
     val markerLineCentre = markerTopPadding + 0.45f
-    Box(Modifier.width(0.75f.gridUnitsAsDp()).fillMaxHeight()) {
+    Box(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()).fillMaxHeight()) {
         if (connectAbove) {
             Spacer(
                 Modifier
@@ -803,7 +823,7 @@ private fun TimelineRail(
             Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = markerTopPadding.gridUnitsAsDp())
-                .width(0.75f.gridUnitsAsDp())
+                .width(timelineRailColumnGridUnits.gridUnitsAsDp())
                 .height(0.9f.gridUnitsAsDp()),
             contentAlignment = Alignment.Center,
         ) {
@@ -822,7 +842,7 @@ private fun TimelineRail(
 private fun TimelineLine() {
     Box(
         Modifier
-            .width(0.75f.gridUnitsAsDp())
+            .width(timelineRailColumnGridUnits.gridUnitsAsDp())
             .fillMaxHeight(),
         contentAlignment = Alignment.Center,
     ) {
@@ -1578,7 +1598,15 @@ private fun Section(text: String) {
     )
 }
 
-private const val timelineTimeColumnGridUnits = 3.5f
+private const val timelineTimeColumnGridUnits = 3.75f
+private const val timelineRailColumnGridUnits = 0.75f
+private const val timelineContentPaddingGridUnits = 0.55f
+private const val timelineTimeEndPaddingGridUnits = 0.4f
+private const val timelineStationTopPaddingGridUnits = 0.45f
+private const val timelineStationBottomPaddingGridUnits = 0.55f
+private const val timelineRideTopPaddingGridUnits = 0.45f
+private const val timelineRideBottomPaddingGridUnits = 0.8f
+private const val timelineTransferGapGridUnits = 0.45f
 private val stationLetters = ('A'..'Z').map { it.toString() }
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
