@@ -15,11 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
@@ -38,6 +42,7 @@ import com.thelightphone.sdk.ui.LightThemeTokens
 import com.thelightphone.sdk.ui.LightTopBar
 import com.thelightphone.sdk.ui.LightTopBarCenter
 import com.thelightphone.sdk.ui.designVerticalPxToDp
+import com.thelightphone.sdk.ui.designVerticalPxToSp
 import com.thelightphone.sdk.ui.gridUnitsAsDp
 import com.thelightphone.sdk.ui.lightClickable
 import java.time.Duration
@@ -384,19 +389,33 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
 
 @Composable
 private fun JourneyOverview(trip: TripOption, copy: Copy) {
-    val origin = trip.legs.firstOrNull()?.origin?.name.orEmpty()
-    val destination = trip.legs.lastOrNull()?.destination?.name.orEmpty()
+    val firstLeg = trip.legs.firstOrNull()
+    val lastLeg = trip.legs.lastOrNull()
+    val origin = firstLeg?.origin?.name.orEmpty()
+    val destination = lastLeg?.destination?.name.orEmpty()
     Column(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 0.35f.gridUnitsAsDp())
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .padding(0.75f.gridUnitsAsDp()),
-    ) {
+        ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            JourneyEndpoint(time(trip.departure), origin, TextAlign.Start, Modifier.weight(1f))
+            JourneyEndpoint(
+                time = time(trip.departure),
+                delayMinutes = firstLeg?.departureDelayMinutes ?: 0,
+                station = origin,
+                align = TextAlign.Start,
+                modifier = Modifier.weight(1f),
+            )
             LightText("→", LightTextVariant.Subheading, monospace = true)
-            JourneyEndpoint(time(trip.arrival), destination, TextAlign.End, Modifier.weight(1f))
+            JourneyEndpoint(
+                time = time(trip.arrival),
+                delayMinutes = lastLeg?.arrivalDelayMinutes ?: 0,
+                station = destination,
+                align = TextAlign.End,
+                modifier = Modifier.weight(1f),
+            )
         }
         LightText(
             tripSummary(trip, copy),
@@ -408,10 +427,80 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
 }
 
 @Composable
-private fun JourneyEndpoint(time: String, station: String, align: TextAlign, modifier: Modifier = Modifier) {
+private fun JourneyEndpoint(
+    time: String,
+    delayMinutes: Int,
+    station: String,
+    align: TextAlign,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier) {
-        LightText(time, LightTextVariant.Subheading, monospace = true, align = align, modifier = Modifier.fillMaxWidth())
+        TimeWithDelay(
+            time = time,
+            delayMinutes = delayMinutes,
+            variant = LightTextVariant.Subheading,
+            modifier = Modifier.fillMaxWidth(),
+            align = align,
+        )
         LightText(station, LightTextVariant.Detail, align = align, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+    }
+}
+
+@Composable
+private fun TimeWithDelay(
+    time: String,
+    delayMinutes: Int,
+    variant: LightTextVariant,
+    modifier: Modifier = Modifier,
+    align: TextAlign = TextAlign.Start,
+    color: androidx.compose.ui.graphics.Color? = null,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = if (align == TextAlign.End) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightText(time, variant, color = color, monospace = true, maxLines = 1)
+        if (delayMinutes > 0) {
+            BoldDelay("+$delayMinutes", color)
+        }
+    }
+}
+
+@Composable
+private fun BoldDelay(
+    text: String,
+    color: androidx.compose.ui.graphics.Color? = null,
+    prominent: Boolean = false,
+) {
+    val fontSize = if (prominent) 24f else 18f
+    val lineHeight = if (prominent) 27f else 20f
+    Text(
+        text = text,
+        color = color ?: LightThemeTokens.colors.content,
+        maxLines = 1,
+        style = TextStyle(
+            fontSize = fontSize.designVerticalPxToSp(),
+            lineHeight = lineHeight.designVerticalPxToSp(),
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+        ),
+    )
+}
+
+@Composable
+private fun JourneyTimeRange(
+    trip: TripOption,
+    variant: LightTextVariant,
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color? = null,
+) {
+    val departureDelay = trip.legs.firstOrNull()?.departureDelayMinutes ?: 0
+    val arrivalDelay = trip.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        TimeWithDelay(time(trip.departure), departureDelay, variant, color = color)
+        LightText("–", variant, color = color, monospace = true, maxLines = 1)
+        TimeWithDelay(time(trip.arrival), arrivalDelay, variant, color = color)
     }
 }
 
@@ -509,7 +598,7 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
 ) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        TimelineTime(time(actualTime), Modifier.padding(top = 0.35f.gridUnitsAsDp()))
+        TimelineTime(time(actualTime), delayMinutes, Modifier.padding(top = 0.35f.gridUnitsAsDp()))
         TimelineRail(
             connectAbove = connectAbove,
             connectBelow = connectBelow,
@@ -525,10 +614,7 @@ private fun TimelineStation(
             ) {
                 LightText(label.uppercase(Locale.ROOT), LightTextVariant.Superfine, monospace = true, lighten = true)
                 platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
-                when {
-                    cancelled -> Badge(copy.cancelled, inverted = true)
-                    delayMinutes > 0 -> Badge("+$delayMinutes ${copy.minutes}")
-                }
+                if (cancelled) Badge(copy.cancelled, inverted = true)
             }
             if (delayMinutes > 0) {
                 LightText(
@@ -545,7 +631,7 @@ private fun TimelineStation(
 @Composable
 private fun TimelineRide(leg: TripLeg, copy: Copy) {
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Spacer(Modifier.width(3.5f.gridUnitsAsDp()))
+        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
         TimelineLine()
         Column(
             Modifier
@@ -625,7 +711,7 @@ private fun TimelineTransferWait(
     }
 
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        Spacer(Modifier.width(3.5f.gridUnitsAsDp()))
+        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
         TimelineRail(true, true, false, 0.55f)
         Column(
             Modifier
@@ -654,15 +740,14 @@ private fun TimelineTransferWait(
 }
 
 @Composable
-private fun TimelineTime(value: String, modifier: Modifier = Modifier) {
-    LightText(
-        value,
-        LightTextVariant.ParagraphWide,
-        monospace = true,
-        align = TextAlign.End,
-        modifier = modifier.width(3.5f.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
-        maxLines = 1,
-    )
+private fun TimelineTime(value: String, delayMinutes: Int = 0, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()).padding(end = 0.25f.gridUnitsAsDp()),
+        horizontalAlignment = Alignment.End,
+    ) {
+        LightText(value, LightTextVariant.ParagraphWide, monospace = true, maxLines = 1)
+        if (delayMinutes > 0) BoldDelay("+$delayMinutes", prominent = true)
+    }
 }
 
 @Composable
@@ -831,13 +916,22 @@ private fun LiveJourneyCard(journey: TripOption, copy: Copy, onClick: () -> Unit
             )
             LightText("→", LightTextVariant.Subheading, color = LightThemeTokens.colors.background, monospace = true)
         }
-        LightText(
-            "${time(journey.departure)}–${time(journey.arrival)} · ${tripSummary(journey, copy)}",
-            LightTextVariant.Detail,
-            color = LightThemeTokens.colors.background,
-            modifier = Modifier.padding(top = 0.25f.gridUnitsAsDp()),
-            maxLines = 2,
-        )
+        Row(
+            Modifier.fillMaxWidth().padding(top = 0.25f.gridUnitsAsDp()),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            JourneyTimeRange(
+                trip = journey,
+                variant = LightTextVariant.Detail,
+                color = LightThemeTokens.colors.background,
+            )
+            LightText(
+                " · ${tripSummary(journey, copy)}",
+                LightTextVariant.Detail,
+                color = LightThemeTokens.colors.background,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -958,10 +1052,9 @@ private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick:
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Badge(index.toString().padStart(2, '0'), inverted = true)
-            LightText(
-                "${time(trip.departure)}–${time(trip.arrival)}",
-                LightTextVariant.Subheading,
-                monospace = true,
+            JourneyTimeRange(
+                trip = trip,
+                variant = LightTextVariant.Subheading,
                 modifier = Modifier.weight(1f).padding(start = 0.65f.gridUnitsAsDp()),
             )
             LightText("→", LightTextVariant.Subheading, monospace = true)
@@ -973,7 +1066,6 @@ private fun JourneyResultCard(index: Int, trip: TripOption, copy: Copy, onClick:
         ) {
             LightText("${trip.durationMinutes} ${copy.minutes}", LightTextVariant.Detail, lighten = true)
             Badge(if (trip.transfers == 0) copy.direct else "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}")
-            if (trip.delayMinutes > 0) Badge("+${trip.delayMinutes} ${copy.minutes}", inverted = true)
         }
     }
 }
@@ -1391,6 +1483,7 @@ private fun Section(text: String) {
     )
 }
 
+private const val timelineTimeColumnGridUnits = 3.5f
 private val stationLetters = ('A'..'Z').map { it.toString() }
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
@@ -1413,8 +1506,7 @@ private fun journeyTitle(journey: TripOption): String = "${journey.legs.firstOrN
 private fun routeSummary(from: Station?, to: Station?): String = listOfNotNull(from?.name, to?.name).joinToString(" → ")
 private fun tripSummary(trip: TripOption, copy: Copy): String {
     val transferText = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}"
-    val delay = if (trip.delayMinutes > 0) " · +${trip.delayMinutes}" else ""
-    return "${trip.durationMinutes} ${copy.minutes} · $transferText$delay"
+    return "${trip.durationMinutes} ${copy.minutes} · $transferText"
 }
 private fun departureStatus(departure: Departure, copy: Copy): String? = when {
     departure.cancelled -> copy.cancelled
