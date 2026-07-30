@@ -464,7 +464,8 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         val state = _uiState.value.persisted
         api.registerActiveJourney(state.identity(), trip, state.language, state.notificationPreferences)
         updatePersisted { it.copy(activeJourney = trip) }
-        updateMode(ScreenMode.Active(trip))
+        screenHistory.clear()
+        replaceMode(ScreenMode.Active(trip))
         startForegroundRefresh()
     }
 

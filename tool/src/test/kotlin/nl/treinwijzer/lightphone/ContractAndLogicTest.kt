@@ -14,6 +14,7 @@ import java.time.ZonedDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ContractAndLogicTest {
@@ -279,6 +280,24 @@ class ContractAndLogicTest {
 
         assertEquals(ScreenMode.Planner, history.previousMatching { it == ScreenMode.Planner })
         assertEquals(ScreenMode.Home, history.previous())
+    }
+
+    @Test
+    fun screenHistoryCanResetWhenTrackingStarts() {
+        val history = ScreenHistory()
+        val request = PlannerRequest(
+            origin = Station("A", "Station A", "NL"),
+            destination = Station("B", "Station B", "NL"),
+        )
+        val trips = ScreenMode.Trips(request, emptyList())
+
+        history.record(ScreenMode.Home, ScreenMode.Planner)
+        history.record(ScreenMode.Planner, trips)
+        history.record(trips, ScreenMode.Settings)
+
+        history.clear()
+
+        assertNull(history.previous())
     }
 
     @Test
