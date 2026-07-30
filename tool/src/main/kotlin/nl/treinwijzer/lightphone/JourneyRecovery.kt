@@ -24,14 +24,6 @@ private fun recoveryRoute(
 ): JourneyRecoveryRoute? =
     if (from.code.equals(to.code, ignoreCase = true)) null else JourneyRecoveryRoute(from, to, dateTime)
 
-internal fun TripOption.firstTransferRecoveryRoute(): JourneyRecoveryRoute? {
-    val transferLeg = legs.firstOrNull() ?: return null
-    val destination = legs.lastOrNull()?.destination ?: return null
-    if (legs.size < 2) return null
-    val arrival = recoveryInstant(transferLeg.actualArrival) ?: return null
-    return recoveryRoute(transferLeg.destination, destination, arrival)
-}
-
 internal fun TripOption.activeRecoveryRoute(now: Instant): JourneyRecoveryRoute? {
     val destination = legs.lastOrNull()?.destination ?: return null
 

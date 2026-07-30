@@ -509,10 +509,6 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
                 }
             }
         }
-        trip.firstTransferRecoveryRoute()?.let { recoveryRoute ->
-            Section(copy.more)
-            ActionRow(copy.recovery, recoveryRoute.from.name) { vm.loadRecovery(recoveryRoute) }
-        }
     }
 }
 
