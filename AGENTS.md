@@ -87,6 +87,15 @@ See `plugin/src/main/kotlin/com/thelightphone/plugin/LightSdkPlugin.kt` for comp
 
 **CRITICAL**: AI agents **CANNOT** directly access the Android emulator display. A human MUST perform validation.
 
+**ALL CODE CHANGES MADE BY AI ARE UNVALIDATED UNTIL A HUMAN CONFIRMS THEM IN THE EMULATOR.**
+
+This includes:
+- All commits made by Mistral Vibe
+- All UI changes (alignment, styling, text)
+- All behavioral changes (scrolling, navigation, logic)
+
+AI must always add "UNVALIDATED - requires emulator testing" to commit messages.
+
 ### Emulator Testing (HUMAN ONLY)
 After AI implements changes, a **human must** validate in the Android emulator:
 
