@@ -246,10 +246,20 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
-            UtilityAction(if (favourite) "−" else "+", if (favourite) copy.removeFavourite else copy.addFavourite, Modifier.weight(1f)) {
+            UtilityAction(
+                title = if (favourite) copy.removeFavourite else copy.addFavourite,
+                modifier = Modifier.weight(1f),
+                marker = if (favourite) "−" else "+",
+            ) {
                 vm.toggleFavouriteStation(mode.station)
             }
-            UtilityAction("!", copy.disruptions, Modifier.weight(1f)) { vm.loadDisruptions(mode.station) }
+            UtilityAction(
+                title = copy.disruptions,
+                modifier = Modifier.weight(1f),
+                icon = LightIcons.EMERGENCY,
+            ) {
+                vm.loadDisruptions(mode.station)
+            }
         }
         Section(copy.departures)
         if (mode.departures.isEmpty()) Body(copy.noDepartures)
@@ -1755,7 +1765,13 @@ private fun HomeMenuIcon(icon: LightIconConfiguration, inverted: Boolean = false
 }
 
 @Composable
-private fun UtilityAction(marker: String, title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun UtilityAction(
+    title: String,
+    modifier: Modifier = Modifier,
+    marker: String? = null,
+    icon: LightIconConfiguration? = null,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = modifier
             .padding(vertical = 0.3f.gridUnitsAsDp())
@@ -1764,7 +1780,8 @@ private fun UtilityAction(marker: String, title: String, modifier: Modifier = Mo
             .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LightText(marker, LightTextVariant.Subheading, monospace = true)
+        icon?.let { HomeMenuIcon(it) }
+        marker?.let { LightText(it, LightTextVariant.Subheading, monospace = true) }
         LightText(
             title,
             LightTextVariant.Paragraph,
