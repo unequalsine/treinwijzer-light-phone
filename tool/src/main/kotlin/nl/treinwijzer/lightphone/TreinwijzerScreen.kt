@@ -22,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -817,7 +819,7 @@ private fun TimelineStation(
             ) {
                 LightText(
                     time(plannedTime),
-                    LightTextVariant.ParagraphWide,
+                    LightTextVariant.Subheading,
                     modifier = Modifier
                         .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
                         .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp())
@@ -828,7 +830,7 @@ private fun TimelineStation(
                 Spacer(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()))
                 LightText(
                     station,
-                    LightTextVariant.ParagraphWide,
+                    LightTextVariant.Subheading,
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = timelineContentPaddingGridUnits.gridUnitsAsDp())
@@ -1053,26 +1055,35 @@ private fun TimelineRail(
     markerTopPadding: Float,
 ) {
     val markerLineCentre = markerTopPadding + 0.45f
-    Box(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()).fillMaxHeight()) {
-        if (connectAbove) {
-            Spacer(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .width(2f.designVerticalPxToDp())
-                    .height(markerLineCentre.gridUnitsAsDp())
-                    .background(LightThemeTokens.colors.content),
-            )
-        }
-        if (connectBelow) {
-            Spacer(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = markerLineCentre.gridUnitsAsDp())
-                    .width(2f.designVerticalPxToDp())
-                    .fillMaxHeight()
-                    .background(LightThemeTokens.colors.content),
-            )
-        }
+    val markerLineCentreDp = markerLineCentre.gridUnitsAsDp()
+    val lineWidth = 2f.designVerticalPxToDp()
+    val lineColour = LightThemeTokens.colors.content
+    Box(
+        Modifier
+            .width(timelineRailColumnGridUnits.gridUnitsAsDp())
+            .fillMaxHeight()
+            .drawBehind {
+                val centreX = size.width / 2f
+                val centreY = markerLineCentreDp.toPx().coerceIn(0f, size.height)
+                val strokeWidth = lineWidth.toPx()
+                if (connectAbove) {
+                    drawLine(
+                        color = lineColour,
+                        start = Offset(centreX, 0f),
+                        end = Offset(centreX, centreY),
+                        strokeWidth = strokeWidth,
+                    )
+                }
+                if (connectBelow) {
+                    drawLine(
+                        color = lineColour,
+                        start = Offset(centreX, centreY),
+                        end = Offset(centreX, size.height),
+                        strokeWidth = strokeWidth,
+                    )
+                }
+            },
+    ) {
         Box(
             Modifier
                 .align(Alignment.TopCenter)
@@ -1424,7 +1435,7 @@ private fun JourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifi
                     modifier = Modifier.padding(horizontal = 0.2f.gridUnitsAsDp()),
                 )
             }
-            Badge(service)
+            TrainServiceBadge(service)
         }
     }
 }
@@ -1466,7 +1477,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
             ).joinToString(" ")
             val platform = (departure.actualTrack ?: departure.plannedTrack)?.takeIf(String::isNotBlank)
             Spacer(Modifier.weight(1f))
-            if (service.isNotBlank()) Badge(service)
+            if (service.isNotBlank()) TrainServiceBadge(service)
             platform?.let {
                 if (service.isNotBlank()) Spacer(Modifier.width(0.35f.gridUnitsAsDp()))
                 PlatformBadge(platform)
@@ -1914,24 +1925,37 @@ private fun TrainPlatformBadges(trainType: String, trainNumber: String?, platfor
         horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Badge(listOfNotNull(trainType.takeIf(String::isNotBlank), trainNumber?.takeIf(String::isNotBlank)).joinToString(" "))
+        TrainServiceBadge(listOfNotNull(trainType.takeIf(String::isNotBlank), trainNumber?.takeIf(String::isNotBlank)).joinToString(" "))
         platform?.takeIf(String::isNotBlank)?.let { PlatformBadge(it) }
     }
 }
 
 @Composable
+private fun TrainServiceBadge(service: String) {
+    TransportBadge(service.uppercase(Locale.ROOT), inverted = false)
+}
+
+@Composable
 private fun PlatformBadge(platform: String) {
+    TransportBadge(platform.trim(), inverted = true)
+}
+
+@Composable
+private fun TransportBadge(text: String, inverted: Boolean) {
+    val background = if (inverted) LightThemeTokens.colors.content else LightThemeTokens.colors.background
+    val foreground = if (inverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content
     Box(
         Modifier
-            .background(LightThemeTokens.colors.content)
+            .height(1.3f.gridUnitsAsDp())
+            .background(background)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .padding(horizontal = 0.5f.gridUnitsAsDp(), vertical = 0.16f.gridUnitsAsDp()),
+            .padding(horizontal = 0.5f.gridUnitsAsDp()),
         contentAlignment = Alignment.Center,
     ) {
         LightText(
-            text = platform.trim(),
+            text = text,
             variant = LightTextVariant.Paragraph,
-            color = LightThemeTokens.colors.background,
+            color = foreground,
             monospace = true,
             maxLines = 1,
         )
