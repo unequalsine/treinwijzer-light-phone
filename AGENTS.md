@@ -85,21 +85,32 @@ See `plugin/src/main/kotlin/com/thelightphone/plugin/LightSdkPlugin.kt` for comp
 
 ## Validation and Testing
 
-### Emulator Testing
-After implementing changes, **MUST** validate in the Android emulator:
+**CRITICAL**: AI agents **CANNOT** directly access the Android emulator display. A human MUST perform validation.
+
+### Emulator Testing (HUMAN ONLY)
+After AI implements changes, a **human must** validate in the Android emulator:
 
 1. **Reload the tool**: Run `./scripts/install-tool.sh` to install the updated version
 2. **Take screenshots**: Capture before/after screenshots for visual changes
 3. **Test functionality**: Verify the change works as intended
+4. **Document results**: Note any issues or confirm success
+
+### AI Agent Limitations
+- **CANNOT** run emulator (requires display server access)
+- **CANNOT** take screenshots
+- **CANNOT** visually verify UI changes
+- **CAN** only implement code changes
 
 ### Documentation Requirements
-- **All changes must be documented** in commit messages with clear descriptions
-- **Visual changes** should include screenshot references or descriptions of expected appearance
-- **Behavioral changes** should describe the new behavior and how to test it
+- AI must clearly state in commit message: "UNVALIDATED - requires emulator testing"
+- Commit message must describe changes and what needs validation
+- Visual changes should include description of expected appearance
+- Behavioral changes should describe the new behavior and test steps
 
 ### Change Validation Checklist
-- [ ] Code compiles without errors
-- [ ] Changes follow existing code style and patterns
-- [ ] New functionality is tested in emulator
-- [ ] Screenshots taken for UI changes
-- [ ] Commit message describes changes and validation
+- [ ] AI implements code changes
+- [ ] AI commits with "UNVALIDATED" notice
+- [ ] Human runs `./scripts/install-tool.sh`
+- [ ] Human tests in emulator
+- [ ] Human takes screenshots for UI changes
+- [ ] Human confirms success or reports issues
