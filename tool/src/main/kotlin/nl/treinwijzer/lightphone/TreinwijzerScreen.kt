@@ -1991,10 +1991,12 @@ private fun UtilityAction(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null || marker != null) {
+            val opticalOffset = if (marker != null) -0.2f else -0.07f
             Box(
                 modifier = Modifier
                     .width(0.9f.gridUnitsAsDp())
-                    .height(0.9f.gridUnitsAsDp()),
+                    .height(0.9f.gridUnitsAsDp())
+                    .offset(y = opticalOffset.gridUnitsAsDp()),
                 contentAlignment = Alignment.Center,
             ) {
                 icon?.let { HomeMenuIcon(it) }
