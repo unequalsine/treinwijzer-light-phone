@@ -1637,11 +1637,12 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DepartureTimeHeadline(departure = departure)
+            Spacer(Modifier.width(0.75f.gridUnitsAsDp()))
             DepartureHeadline(
                 text = departure.direction,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 0.45f.gridUnitsAsDp()),
+                    .padding(end = 0.45f.gridUnitsAsDp()),
                 maxLines = 1,
             )
             if (service.isNotBlank()) TrainServiceBadge(service)
