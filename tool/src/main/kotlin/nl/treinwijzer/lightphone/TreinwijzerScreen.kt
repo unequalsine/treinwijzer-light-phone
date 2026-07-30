@@ -1515,14 +1515,12 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
         Row(
             Modifier.fillMaxWidth(),
         ) {
-            LightText(
-                time(departure.actualDateTime),
-                LightTextVariant.Subheading,
+            DepartureHeadline(
+                text = time(departure.actualDateTime),
                 modifier = Modifier.alignByBaseline(),
             )
-            LightText(
-                departure.direction,
-                LightTextVariant.Subheading,
+            DepartureHeadline(
+                text = departure.direction,
                 align = TextAlign.End,
                 modifier = Modifier
                     .weight(1f)
@@ -1947,22 +1945,26 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.35f.gridUnitsAsDp())
+            .padding(vertical = 0.25f.gridUnitsAsDp())
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
-            .padding(horizontal = 0.75f.gridUnitsAsDp(), vertical = 0.65f.gridUnitsAsDp()),
+            .padding(horizontal = 0.75f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LightText(time(departure.actualDateTime), LightTextVariant.Subheading)
-            LightText(
-                departure.direction,
-                LightTextVariant.Copy,
+            DepartureHeadline(
+                text = time(departure.actualDateTime),
+                modifier = Modifier.alignByBaseline(),
+                maxLines = 1,
+            )
+            DepartureHeadline(
+                text = departure.direction,
                 align = TextAlign.End,
-                modifier = Modifier.weight(1f).padding(start = 0.6f.gridUnitsAsDp()),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 0.6f.gridUnitsAsDp())
+                    .alignByBaseline(),
                 maxLines = 2,
             )
         }
@@ -1980,6 +1982,26 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
             )
         }
     }
+}
+
+@Composable
+private fun DepartureHeadline(
+    text: String,
+    modifier: Modifier = Modifier,
+    align: TextAlign = TextAlign.Start,
+    maxLines: Int = 2,
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        color = LightThemeTokens.colors.content,
+        maxLines = maxLines,
+        style = LightThemeTokens.typography.heading.copy(
+            fontSize = 34f.designVerticalPxToSp(),
+            lineHeight = 42.5f.designVerticalPxToSp(),
+            textAlign = align,
+        ),
+    )
 }
 
 @Composable
@@ -2022,7 +2044,6 @@ private fun TransportBadge(text: String, inverted: Boolean) {
             color = foreground,
             monospace = true,
             maxLines = 1,
-            // modifier = Modifier.alignByBaseline(),
         )
     }
 }
