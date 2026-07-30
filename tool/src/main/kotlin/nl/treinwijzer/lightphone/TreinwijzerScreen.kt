@@ -739,7 +739,6 @@ private fun JourneyMetric(
             value,
             LightTextVariant.Detail,
             modifier = Modifier.padding(start = 0.2f.gridUnitsAsDp()),
-            monospace = true,
             maxLines = 1,
         )
     }
