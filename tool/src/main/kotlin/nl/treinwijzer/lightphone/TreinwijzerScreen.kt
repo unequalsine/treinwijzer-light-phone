@@ -31,6 +31,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -658,68 +660,77 @@ private fun findFirstNonPastTimelineIndex(journey: TripOption, now: Instant): In
 private fun JourneyOverview(trip: TripOption, copy: Copy) {
     val firstLeg = trip.legs.firstOrNull()
     val lastLeg = trip.legs.lastOrNull()
-    val origin = firstLeg?.origin?.name.orEmpty()
-    val destination = lastLeg?.destination?.name.orEmpty()
     val cancelled = trip.primaryChangeKind() == JourneyChangeKind.CANCELLED
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.35f.gridUnitsAsDp())
-            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .padding(0.75f.gridUnitsAsDp()),
-        ) {
+            .padding(vertical = 0.6f.gridUnitsAsDp()),
+    ) {
         JourneyChangeBanner(trip, copy)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            JourneyEndpoint(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TimeWithDelay(
                 time = time(trip.plannedDeparture),
                 delayMinutes = if (cancelled) 0 else firstLeg?.departureDelayMinutes ?: 0,
-                station = origin,
-                align = TextAlign.Start,
-                modifier = Modifier.weight(1f),
+                variant = LightTextVariant.Detail,
             )
-            LightText("→", LightTextVariant.Subheading, monospace = true)
-            JourneyEndpoint(
+            LightText("  →  ", LightTextVariant.Detail, monospace = true, maxLines = 1)
+            TimeWithDelay(
                 time = time(trip.plannedArrival),
                 delayMinutes = if (cancelled) 0 else lastLeg?.arrivalDelayMinutes ?: 0,
-                station = destination,
-                align = TextAlign.End,
-                modifier = Modifier.weight(1f),
+                variant = LightTextVariant.Detail,
             )
         }
+        LightText(
+            journeyTitle(trip),
+            LightTextVariant.Heading,
+            modifier = Modifier.padding(top = 0.2f.gridUnitsAsDp()),
+            maxLines = 2,
+        )
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LightText(
-                tripSummary(trip, copy),
-                LightTextVariant.Detail,
-                lighten = true,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
+            JourneyMetric(
+                icon = LightIcons.ALARM,
+                value = trip.durationMinutes.toString(),
+                spokenLabel = "${trip.durationMinutes} ${copy.minutes}",
             )
+            Spacer(Modifier.width(0.65f.gridUnitsAsDp()))
+            JourneyMetric(
+                icon = LightIcons.REVERSE_ORDER,
+                value = trip.transfers.toString(),
+                spokenLabel = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}",
+            )
+            Spacer(Modifier.weight(1f))
             JourneyServiceSequence(trip)
         }
     }
 }
 
 @Composable
-private fun JourneyEndpoint(
-    time: String,
-    delayMinutes: Int,
-    station: String,
-    align: TextAlign,
-    modifier: Modifier = Modifier,
+private fun JourneyMetric(
+    icon: LightIconConfiguration,
+    value: String,
+    spokenLabel: String,
 ) {
-    Column(modifier) {
-        TimeWithDelay(
-            time = time,
-            delayMinutes = delayMinutes,
-            variant = LightTextVariant.Subheading,
-            modifier = Modifier.fillMaxWidth(),
-            align = align,
+    Row(
+        modifier = Modifier.clearAndSetSemantics {
+            contentDescription = spokenLabel
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightIcon(
+            icon = icon,
+            size = 0.62f,
+            contentDescription = null,
         )
-        LightText(station, LightTextVariant.Detail, align = align, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+        LightText(
+            value,
+            LightTextVariant.Detail,
+            modifier = Modifier.padding(start = 0.2f.gridUnitsAsDp()),
+            monospace = true,
+            maxLines = 1,
+        )
     }
 }
 
