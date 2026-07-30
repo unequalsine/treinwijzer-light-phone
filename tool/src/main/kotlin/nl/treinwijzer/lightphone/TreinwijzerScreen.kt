@@ -997,7 +997,7 @@ private fun TimelineTime(value: String, delayMinutes: Int = 0, modifier: Modifie
             .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
         horizontalAlignment = Alignment.End,
     ) {
-        LightText(value, LightTextVariant.ParagraphWide, monospace = true, maxLines = 1)
+        LightText(value, LightTextVariant.ParagraphWide, maxLines = 1)
         if (delayMinutes > 0) TimelineDelay("+$delayMinutes")
     }
 }
