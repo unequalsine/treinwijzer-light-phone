@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -548,39 +547,43 @@ private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: Treinwijze
                 .height(2f.designVerticalPxToDp())
                 .background(LightThemeTokens.colors.content),
         )
-        Column(
-            Modifier
+        LightScrollView(
+            modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 1f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
+                .fillMaxWidth(),
+            scrollState = scrollState,
         ) {
-            JourneyOverview(journey, copy)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 1f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
             ) {
-                recoveryRoute?.let { route ->
-                    SecondaryAction(copy.recover, Modifier.weight(1f)) { vm.loadRecovery(route) }
+                JourneyOverview(journey, copy)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+                ) {
+                    recoveryRoute?.let { route ->
+                        SecondaryAction(copy.recover, Modifier.weight(1f)) { vm.loadRecovery(route) }
+                    }
+                    SecondaryAction(copy.stop, Modifier.weight(1f), vm::stopTracking)
+                    PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
                 }
-                SecondaryAction(copy.stop, Modifier.weight(1f), vm::stopTracking)
-                PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
-            }
-            Section(copy.journeyTimeline)
-            JourneyTimeline(journey, copy, now, scrollState)
-            JourneyFares(journey, copy)
-            if (journey.disruptions.isNotEmpty()) {
-                Section(copy.disruptions)
-                journey.disruptions.forEach { disruption ->
-                    ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
-                        vm.showDisruption(disruption)
+                Section(copy.journeyTimeline)
+                JourneyTimeline(journey, copy, now, scrollState)
+                JourneyFares(journey, copy)
+                if (journey.disruptions.isNotEmpty()) {
+                    Section(copy.disruptions)
+                    journey.disruptions.forEach { disruption ->
+                        ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
+                            vm.showDisruption(disruption)
+                        }
                     }
                 }
+                Spacer(Modifier.height(2f.gridUnitsAsDp()))
             }
-            // Spacer to allow scrolling to bottom
-            Spacer(Modifier.height(2f.gridUnitsAsDp()))
         }
-        
+
         // Auto-scroll to current element
         ActiveJourneyAutoScroll(journey, now, scrollState)
     }
