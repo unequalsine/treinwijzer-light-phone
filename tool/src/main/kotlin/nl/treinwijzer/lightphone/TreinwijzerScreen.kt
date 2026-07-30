@@ -806,44 +806,79 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
     isPast: Boolean = false,
 ) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).timelinePastAlpha(isPast)) {
-        TimelineTime(time(plannedTime), delayMinutes, Modifier.padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()))
-        TimelineRail(
-            connectAbove = connectAbove,
-            connectBelow = connectBelow,
-            markerInverted = markerInverted,
-            markerTopPadding = timelineStationTopPaddingGridUnits,
-        )
+    Box(Modifier.fillMaxWidth().timelinePastAlpha(isPast)) {
         Column(
             Modifier
-                .weight(1f)
-                .padding(
-                    start = timelineContentPaddingGridUnits.gridUnitsAsDp(),
-                    top = timelineStationTopPaddingGridUnits.gridUnitsAsDp(),
-                    bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
-                ),
+                .fillMaxWidth()
+                .padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(0.3f.gridUnitsAsDp()),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
+                LightText(
+                    time(plannedTime),
+                    LightTextVariant.ParagraphWide,
+                    modifier = Modifier
+                        .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                        .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp())
+                        .alignByBaseline(),
+                    align = TextAlign.End,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()))
                 LightText(
                     station,
                     LightTextVariant.ParagraphWide,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = timelineContentPaddingGridUnits.gridUnitsAsDp())
+                        .alignByBaseline(),
                     maxLines = 2,
                 )
-                platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
+                platform?.takeIf(String::isNotBlank)?.let {
+                    Box(Modifier.padding(start = 0.3f.gridUnitsAsDp())) {
+                        Badge("${copy.platform} $it", inverted = true)
+                    }
+                }
+            }
+            if (delayMinutes > 0) {
+                Row(
+                    modifier = Modifier
+                        .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                        .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TimelineDelay("+$delayMinutes")
+                }
             }
             if (cancelled) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 0.3f.gridUnitsAsDp()),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = (
+                                timelineTimeColumnGridUnits +
+                                    timelineRailColumnGridUnits +
+                                    timelineContentPaddingGridUnits
+                            ).gridUnitsAsDp(),
+                            top = 0.3f.gridUnitsAsDp(),
+                        ),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     Badge(copy.cancelled, inverted = true)
                 }
             }
+            Spacer(Modifier.height(timelineStationBottomPaddingGridUnits.gridUnitsAsDp()))
+        }
+        Row(Modifier.fillMaxSize()) {
+            Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
+            TimelineRail(
+                connectAbove = connectAbove,
+                connectBelow = connectBelow,
+                markerInverted = markerInverted,
+                markerTopPadding = timelineStationTopPaddingGridUnits,
+            )
+            Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -992,19 +1027,6 @@ private fun TimelineTransferWait(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun TimelineTime(value: String, delayMinutes: Int = 0, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
-            .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
-        horizontalAlignment = Alignment.End,
-    ) {
-        LightText(value, LightTextVariant.ParagraphWide, maxLines = 1)
-        if (delayMinutes > 0) TimelineDelay("+$delayMinutes")
     }
 }
 
@@ -1418,15 +1440,23 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.6f.gridUnitsAsDp()),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            LightText(time(departure.actualDateTime), LightTextVariant.Subheading, monospace = true)
-            LightText("→", LightTextVariant.Paragraph, monospace = true)
+            LightText(
+                time(departure.actualDateTime),
+                LightTextVariant.Subheading,
+                modifier = Modifier.alignByBaseline(),
+            )
+            LightText(
+                "→",
+                LightTextVariant.Paragraph,
+                monospace = true,
+                modifier = Modifier.alignByBaseline(),
+            )
             LightText(
                 departure.direction,
                 LightTextVariant.Subheading,
                 align = TextAlign.End,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).alignByBaseline(),
                 maxLines = 2,
             )
         }
