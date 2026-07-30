@@ -14,11 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -528,29 +534,105 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
 private fun ActiveJourneyContent(journey: TripOption, copy: Copy, vm: TreinwijzerViewModel) {
     val now = Instant.now()
     val recoveryRoute = journey.activeRecoveryRoute(now)
-    ScreenFrame(copy.activeJourney, vm::back) {
-        JourneyOverview(journey, copy)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+    val scrollState = rememberScrollState()
+    
+    Column(Modifier.fillMaxSize()) {
+        LightTopBar(
+            leftButton = LightBarButton.LightIcon(LightIcons.BACK, onClick = vm::back),
+            center = LightTopBarCenter.Text(copy.activeJourney),
+        )
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(2f.designVerticalPxToDp())
+                .background(LightThemeTokens.colors.content),
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 1f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
         ) {
-            recoveryRoute?.let { route ->
-                SecondaryAction(copy.recover, Modifier.weight(1f)) { vm.loadRecovery(route) }
-            }
-            SecondaryAction(copy.stop, Modifier.weight(1f), vm::stopTracking)
-            PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
-        }
-        Section(copy.journeyTimeline)
-        JourneyTimeline(journey, copy, now)
-        if (journey.disruptions.isNotEmpty()) {
-            Section(copy.disruptions)
-            journey.disruptions.forEach { disruption ->
-                ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
-                    vm.showDisruption(disruption)
+            JourneyOverview(journey, copy)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+            ) {
+                recoveryRoute?.let { route ->
+                    SecondaryAction(copy.recover, Modifier.weight(1f)) { vm.loadRecovery(route) }
                 }
+                SecondaryAction(copy.stop, Modifier.weight(1f), vm::stopTracking)
+                PrimaryAction(copy.refresh, modifier = Modifier.weight(1f), onClick = vm::manualRefreshActive)
+            }
+            Section(copy.journeyTimeline)
+            JourneyTimeline(journey, copy, now, scrollState)
+            JourneyFares(journey, copy)
+            if (journey.disruptions.isNotEmpty()) {
+                Section(copy.disruptions)
+                journey.disruptions.forEach { disruption ->
+                    ActionRow(disruption.title, disruptionCategory(disruption, copy)) {
+                        vm.showDisruption(disruption)
+                    }
+                }
+            }
+            // Spacer to allow scrolling to bottom
+            Spacer(Modifier.height(2f.gridUnitsAsDp()))
+        }
+        
+        // Auto-scroll to current element
+        ActiveJourneyAutoScroll(journey, now, scrollState)
+    }
+}
+
+@Composable
+private fun ActiveJourneyAutoScroll(journey: TripOption, now: Instant, scrollState: ScrollState) {
+    val firstNonPastIndex = remember(journey, now) {
+        findFirstNonPastTimelineIndex(journey, now)
+    }
+    
+    LaunchedEffect(firstNonPastIndex, scrollState.maxValue) {
+        if (firstNonPastIndex > 0 && scrollState.maxValue > 0) {
+            delay(100) // Small delay to allow UI to compose
+            // Estimate position based on index
+            val target = scrollState.maxValue * firstNonPastIndex / (journey.legs.size * 2).coerceAtLeast(1)
+            scrollState.scrollTo(target)
+        }
+    }
+}
+
+private fun findFirstNonPastTimelineIndex(journey: TripOption, now: Instant): Int {
+    if (journey.legs.isEmpty()) return 0
+    
+    // Check first station (origin of first leg)
+    val firstLeg = journey.legs.first()
+    if (!timelineMomentHasPassed(firstLeg.actualDeparture, now)) {
+        return 0 // First element is not past
+    }
+    
+    // Check subsequent elements
+    journey.legs.forEachIndexed { index, leg ->
+        // Ride element
+        if (!timelineMomentHasPassed(leg.actualArrival, now)) {
+            return index * 2 + 1 // Ride element (after first station)
+        }
+        
+        // Transfer or destination element
+        val nextLeg = journey.legs.getOrNull(index + 1)
+        if (nextLeg == null) {
+            // Last station (destination)
+            if (!timelineMomentHasPassed(leg.actualArrival, now)) {
+                return index * 2 + 2
+            }
+        } else {
+            // Transfer contains two stations
+            if (!timelineMomentHasPassed(nextLeg.actualDeparture, now)) {
+                return index * 2 + 2
             }
         }
     }
+    
+    return journey.legs.size * 2 // All elements are past
 }
 
 @Composable
@@ -752,7 +834,7 @@ private fun SecondaryAction(
 }
 
 @Composable
-private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null) {
+private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null, scrollState: ScrollState? = null) {
     if (trip.legs.isEmpty()) {
         Body(copy.noJourneys)
         return

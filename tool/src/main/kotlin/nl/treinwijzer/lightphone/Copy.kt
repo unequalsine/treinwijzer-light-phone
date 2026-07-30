@@ -52,7 +52,7 @@ class Copy(private val language: Language) {
     val swap get() = value("Swap", "Wissel")
     val removeVia get() = value("Remove via", "Verwijder via")
     val refresh get() = value("Refresh", "Vernieuwen")
-    val recover get() = value("Recover", "Alternatief")
+    val recover get() = value("Alternatives", "Alternatieven")
     val stop get() = value("Stop", "Stop")
     val track get() = value("Track journey", "Reis volgen")
     val stopTracking get() = value("Stop tracking", "Stop volgen")
