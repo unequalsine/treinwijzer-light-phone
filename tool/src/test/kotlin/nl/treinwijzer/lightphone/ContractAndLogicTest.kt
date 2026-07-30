@@ -235,6 +235,67 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun journeyChangesPrioritiseCancellationAndExposeOtherModifications() {
+        val trip = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
+        val unchangedLeg = trip.legs.single().copy(
+            actualDeparturePlatform = trip.legs.single().plannedDeparturePlatform,
+        )
+
+        assertEquals(JourneyChangeKind.PLATFORM_CHANGED, trip.primaryChangeKind())
+        assertEquals(
+            JourneyChangeKind.DISRUPTED,
+            trip.copy(status = "disrupted", legs = listOf(unchangedLeg)).primaryChangeKind(),
+        )
+        assertEquals(
+            JourneyChangeKind.CANCELLED,
+            trip.copy(
+                status = "disrupted",
+                legs = listOf(unchangedLeg.copy(cancelled = true)),
+            ).primaryChangeKind(),
+        )
+        assertEquals(
+            JourneyChangeKind.CANCELLED,
+            trip.copy(status = "CANCELLED", legs = listOf(unchangedLeg)).primaryChangeKind(),
+        )
+        assertEquals(
+            null,
+            trip.copy(status = "normal", disruptions = emptyList(), legs = listOf(unchangedLeg)).primaryChangeKind(),
+        )
+        assertEquals(
+            null,
+            trip.copy(status = "delayed", disruptions = emptyList(), legs = listOf(unchangedLeg)).primaryChangeKind(),
+        )
+    }
+
+    @Test
+    fun platformChangesRequireTwoDifferentUsableValues() {
+        assertTrue(platformChanged("5", "7"))
+        assertTrue(platformChanged(" 5 ", "7"))
+        assertTrue(!platformChanged("5", "5"))
+        assertTrue(!platformChanged("5", " 5 "))
+        assertTrue(!platformChanged("5", null))
+        assertTrue(!platformChanged(null, "7"))
+        assertEquals("7", displayedPlatform("5", " 7 "))
+        assertEquals("5", displayedPlatform(" 5 ", null))
+    }
+
+    @Test
+    fun departuresDisplayPlannedTimeWithDelayUnlessCancelled() {
+        val departure = Departure(
+            id = "departure-1",
+            direction = "Rotterdam Centraal",
+            trainType = "IC",
+            plannedDateTime = "2026-07-30T09:55:00+0200",
+            actualDateTime = "2026-07-30T10:07:00+0200",
+            delayMinutes = 12,
+            cancelled = false,
+        )
+
+        assertEquals("09:55+12", departureDisplayTime(departure))
+        assertEquals("09:55", departureDisplayTime(departure.copy(cancelled = true)))
+    }
+
+    @Test
     fun distinguishesPlannedMaintenanceFromUnexpectedDisruptions() {
         val maintenance = Disruption(
             id = "disruption-1",

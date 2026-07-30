@@ -653,6 +653,7 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
     val lastLeg = trip.legs.lastOrNull()
     val origin = firstLeg?.origin?.name.orEmpty()
     val destination = lastLeg?.destination?.name.orEmpty()
+    val cancelled = trip.primaryChangeKind() == JourneyChangeKind.CANCELLED
     Column(
         Modifier
             .fillMaxWidth()
@@ -660,10 +661,11 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .padding(0.75f.gridUnitsAsDp()),
         ) {
+        JourneyChangeBanner(trip, copy)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             JourneyEndpoint(
                 time = time(trip.plannedDeparture),
-                delayMinutes = firstLeg?.departureDelayMinutes ?: 0,
+                delayMinutes = if (cancelled) 0 else firstLeg?.departureDelayMinutes ?: 0,
                 station = origin,
                 align = TextAlign.Start,
                 modifier = Modifier.weight(1f),
@@ -671,7 +673,7 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
             LightText("→", LightTextVariant.Subheading, monospace = true)
             JourneyEndpoint(
                 time = time(trip.plannedArrival),
-                delayMinutes = lastLeg?.arrivalDelayMinutes ?: 0,
+                delayMinutes = if (cancelled) 0 else lastLeg?.arrivalDelayMinutes ?: 0,
                 station = destination,
                 align = TextAlign.End,
                 modifier = Modifier.weight(1f),
@@ -766,6 +768,60 @@ private fun InlineDelay(
     )
 }
 
+private fun journeyChangeLabel(trip: TripOption, copy: Copy): String? = when (trip.primaryChangeKind()) {
+    JourneyChangeKind.CANCELLED -> copy.cancelled
+    JourneyChangeKind.DISRUPTED -> copy.journeyChanged
+    JourneyChangeKind.PLATFORM_CHANGED -> copy.platformChanged
+    null -> null
+}
+
+@Composable
+private fun JourneyChangeBanner(trip: TripOption, copy: Copy) {
+    val label = journeyChangeLabel(trip, copy) ?: return
+    OperationalStatusBanner(
+        label = label,
+        modifier = Modifier.padding(vertical = 0.45f.gridUnitsAsDp()),
+    )
+}
+
+@Composable
+private fun JourneyChangeBadge(trip: TripOption, copy: Copy, onLightBackground: Boolean) {
+    val label = journeyChangeLabel(trip, copy) ?: return
+    Badge(label, inverted = !onLightBackground)
+}
+
+@Composable
+private fun DepartureChangeBanner(departure: Departure, copy: Copy) {
+    val label = when {
+        departure.cancelled -> copy.cancelled
+        platformChanged(departure.plannedTrack, departure.actualTrack) -> copy.platformChanged
+        else -> null
+    } ?: return
+    OperationalStatusBanner(
+        label = label,
+        modifier = Modifier.padding(top = 0.5f.gridUnitsAsDp()),
+    )
+}
+
+@Composable
+private fun OperationalStatusBanner(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .background(LightThemeTokens.colors.content)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(horizontal = 0.55f.gridUnitsAsDp(), vertical = 0.3f.gridUnitsAsDp()),
+    ) {
+        LightText(
+            label.uppercase(Locale.ROOT),
+            LightTextVariant.Detail,
+            color = LightThemeTokens.colors.background,
+            monospace = true,
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 private fun JourneyTimeRange(
     trip: TripOption,
@@ -773,8 +829,9 @@ private fun JourneyTimeRange(
     modifier: Modifier = Modifier,
     color: androidx.compose.ui.graphics.Color? = null,
 ) {
-    val departureDelay = trip.legs.firstOrNull()?.departureDelayMinutes ?: 0
-    val arrivalDelay = trip.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
+    val cancelled = trip.primaryChangeKind() == JourneyChangeKind.CANCELLED
+    val departureDelay = if (cancelled) 0 else trip.legs.firstOrNull()?.departureDelayMinutes ?: 0
+    val arrivalDelay = if (cancelled) 0 else trip.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         TimeWithDelay(time(trip.plannedDeparture), departureDelay, variant, color = color)
         LightText(" – ", variant, color = color, monospace = true, maxLines = 1)
@@ -856,9 +913,10 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null, 
             TimelineStation(
                 station = leg.origin.name,
                 plannedTime = leg.plannedDeparture,
-                platform = leg.actualDeparturePlatform ?: leg.plannedDeparturePlatform,
-                delayMinutes = leg.departureDelayMinutes,
-                cancelled = leg.cancelled,
+                plannedPlatform = leg.plannedDeparturePlatform,
+                actualPlatform = leg.actualDeparturePlatform,
+                delayMinutes = if (leg.cancelled) 0 else leg.departureDelayMinutes,
+                cancelled = false,
                 copy = copy,
                 connectBelow = true,
                 isPast = timelineMomentHasPassed(leg.actualDeparture, now),
@@ -870,9 +928,10 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null, 
             TimelineStation(
                 station = leg.destination.name,
                 plannedTime = leg.plannedArrival,
-                platform = leg.actualArrivalPlatform ?: leg.plannedArrivalPlatform,
-                delayMinutes = leg.arrivalDelayMinutes,
-                cancelled = leg.cancelled,
+                plannedPlatform = leg.plannedArrivalPlatform,
+                actualPlatform = leg.actualArrivalPlatform,
+                delayMinutes = if (leg.cancelled) 0 else leg.arrivalDelayMinutes,
+                cancelled = false,
                 copy = copy,
                 connectAbove = true,
                 isPast = timelineMomentHasPassed(leg.actualArrival, now),
@@ -892,7 +951,8 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null, 
 private fun TimelineStation(
     station: String,
     plannedTime: String,
-    platform: String?,
+    plannedPlatform: String?,
+    actualPlatform: String?,
     delayMinutes: Int,
     cancelled: Boolean,
     copy: Copy,
@@ -952,9 +1012,9 @@ private fun TimelineStation(
                         .alignByBaseline(),
                     maxLines = 2,
                 )
-                platform?.takeIf(String::isNotBlank)?.let {
+                displayedPlatform(plannedPlatform, actualPlatform)?.let {
                     Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
-                        PlatformBadge(it)
+                        PlatformChangeBadge(plannedPlatform, actualPlatform)
                     }
                 }
             }
@@ -1018,19 +1078,40 @@ private fun TimelineRide(leg: TripLeg, copy: Copy, isPast: Boolean = false) {
 private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
     val service = leg.trainType.trim()
     val destination = leg.serviceDestinationName?.takeIf(String::isNotBlank)
-    if (service.isBlank() && destination == null) return
+    if (service.isBlank() && destination == null && !leg.cancelled) return
+    val cancelled = leg.cancelled
+    val panelBackground = if (cancelled) {
+        LightThemeTokens.colors.content
+    } else {
+        LightThemeTokens.colors.contentSecondary.copy(alpha = 0.28f)
+    }
+    val panelForeground = if (cancelled) {
+        LightThemeTokens.colors.background
+    } else {
+        LightThemeTokens.colors.content
+    }
     Column(
         Modifier
             .fillMaxWidth()
-            .background(LightThemeTokens.colors.contentSecondary.copy(alpha = 0.28f))
+            .background(panelBackground)
             .padding(horizontal = 0.65f.gridUnitsAsDp(), vertical = 0.5f.gridUnitsAsDp()),
     ) {
+        if (cancelled) {
+            LightText(
+                copy.cancelled.uppercase(Locale.ROOT),
+                LightTextVariant.Superfine,
+                color = panelForeground,
+                monospace = true,
+                maxLines = 1,
+            )
+        }
         if (service.isNotBlank()) {
             LightText(
                 service.uppercase(Locale.ROOT),
                 LightTextVariant.Superfine,
-                color = LightThemeTokens.colors.content,
+                color = panelForeground,
                 monospace = true,
+                modifier = if (cancelled) Modifier.padding(top = 0.2f.gridUnitsAsDp()) else Modifier,
                 maxLines = 1,
             )
         }
@@ -1038,7 +1119,7 @@ private fun TimelineServicePanel(leg: TripLeg, copy: Copy) {
             LightText(
                 "${copy.towards} $it",
                 LightTextVariant.Detail,
-                color = LightThemeTokens.colors.content,
+                color = panelForeground,
                 modifier = if (service.isBlank()) Modifier else Modifier.padding(top = 0.2f.gridUnitsAsDp()),
                 maxLines = 2,
             )
@@ -1056,9 +1137,10 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         TimelineStation(
             station = station,
             plannedTime = arrivingLeg.plannedArrival,
-            platform = arrivalPlatform,
-            delayMinutes = arrivingLeg.arrivalDelayMinutes,
-            cancelled = arrivingLeg.cancelled,
+            plannedPlatform = arrivingLeg.plannedArrivalPlatform,
+            actualPlatform = arrivingLeg.actualArrivalPlatform,
+            delayMinutes = if (arrivingLeg.cancelled) 0 else arrivingLeg.arrivalDelayMinutes,
+            cancelled = false,
             copy = copy,
             markerInverted = true,
             connectAbove = true,
@@ -1073,9 +1155,10 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
         TimelineStation(
             station = station,
             plannedTime = departingLeg.plannedDeparture,
-            platform = departurePlatform,
-            delayMinutes = departingLeg.departureDelayMinutes,
-            cancelled = departingLeg.cancelled,
+            plannedPlatform = departingLeg.plannedDeparturePlatform,
+            actualPlatform = departingLeg.actualDeparturePlatform,
+            delayMinutes = if (departingLeg.cancelled) 0 else departingLeg.departureDelayMinutes,
+            cancelled = false,
             copy = copy,
             connectAbove = false,
             connectBelow = true,
@@ -1280,12 +1363,16 @@ private fun LiveJourneyCard(journey: TripOption, copy: Copy, onClick: () -> Unit
             .lightClickable(onClick = onClick)
             .padding(0.8f.gridUnitsAsDp()),
     ) {
-        LightText(
-            copy.liveJourney.uppercase(Locale.ROOT),
-            LightTextVariant.Superfine,
-            color = LightThemeTokens.colors.background,
-            monospace = true,
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            LightText(
+                copy.liveJourney.uppercase(Locale.ROOT),
+                LightTextVariant.Superfine,
+                color = LightThemeTokens.colors.background,
+                monospace = true,
+                modifier = Modifier.weight(1f),
+            )
+            JourneyChangeBadge(journey, copy, onLightBackground = true)
+        }
         Row(
             Modifier.fillMaxWidth().padding(top = 0.25f.gridUnitsAsDp()),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1310,8 +1397,9 @@ private fun LiveJourneyCard(journey: TripOption, copy: Copy, onClick: () -> Unit
 
 @Composable
 private fun LiveJourneySummary(journey: TripOption, copy: Copy, modifier: Modifier = Modifier) {
-    val departureDelay = journey.legs.firstOrNull()?.departureDelayMinutes ?: 0
-    val arrivalDelay = journey.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
+    val cancelled = journey.primaryChangeKind() == JourneyChangeKind.CANCELLED
+    val departureDelay = if (cancelled) 0 else journey.legs.firstOrNull()?.departureDelayMinutes ?: 0
+    val arrivalDelay = if (cancelled) 0 else journey.legs.lastOrNull()?.arrivalDelayMinutes ?: 0
     val text = buildAnnotatedString {
         append(time(journey.plannedDeparture))
         if (departureDelay > 0) {
@@ -1472,6 +1560,7 @@ private fun JourneyResultCard(trip: TripOption, copy: Copy, onClick: () -> Unit)
             trip = trip,
             variant = LightTextVariant.Subheading,
         )
+        JourneyChangeBanner(trip, copy)
         LightText(
             tripSummary(trip, copy),
             LightTextVariant.Detail,
@@ -1529,8 +1618,8 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
         Row(
             Modifier.fillMaxWidth(),
         ) {
-            DepartureHeadline(
-                text = time(departure.actualDateTime),
+            DepartureTimeHeadline(
+                departure = departure,
                 modifier = Modifier.alignByBaseline(),
             )
             DepartureHeadline(
@@ -1543,21 +1632,18 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
                 maxLines = 2,
             )
         }
+        DepartureChangeBanner(departure, copy)
         Row(
             Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val service = departure.trainType.trim()
-            val platform = (departure.actualTrack ?: departure.plannedTrack)?.takeIf(String::isNotBlank)
             Spacer(Modifier.weight(1f))
             if (service.isNotBlank()) TrainServiceBadge(service)
-            platform?.let {
+            displayedPlatform(departure.plannedTrack, departure.actualTrack)?.let {
                 if (service.isNotBlank()) Spacer(Modifier.width(0.35f.gridUnitsAsDp()))
-                PlatformBadge(platform)
+                PlatformChangeBadge(departure.plannedTrack, departure.actualTrack)
             }
-        }
-        departureStatus(departure, copy)?.let { status ->
-            LightText(status, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()))
         }
     }
 }
@@ -1567,7 +1653,8 @@ private fun DepartureStopRow(stop: DepartureStop, first: Boolean, last: Boolean,
     TimelineStation(
         station = stop.name,
         plannedTime = departureStopPlannedTime(stop),
-        platform = stop.actualPlatform ?: stop.plannedPlatform,
+        plannedPlatform = stop.plannedPlatform,
+        actualPlatform = stop.actualPlatform,
         delayMinutes = departureStopDelayMinutes(stop),
         cancelled = false,
         copy = copy,
@@ -1582,7 +1669,8 @@ private fun DepartureRouteStationRow(station: String, first: Boolean, last: Bool
     TimelineStation(
         station = station,
         plannedTime = "",
-        platform = null,
+        plannedPlatform = null,
+        actualPlatform = null,
         delayMinutes = 0,
         cancelled = false,
         copy = copy,
@@ -1964,10 +2052,9 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
         Row(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            DepartureHeadline(
-                text = time(departure.actualDateTime),
+            DepartureTimeHeadline(
+                departure = departure,
                 modifier = Modifier.alignByBaseline(),
-                maxLines = 1,
             )
             DepartureHeadline(
                 text = departure.direction,
@@ -1979,19 +2066,35 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
                 maxLines = 2,
             )
         }
+        DepartureChangeBanner(departure, copy)
         TrainPlatformBadges(
             trainType = departure.trainType,
-            platform = departure.actualTrack ?: departure.plannedTrack,
+            plannedPlatform = departure.plannedTrack,
+            actualPlatform = departure.actualTrack,
         )
-        departureStatus(departure, copy)?.let { status ->
-            LightText(
-                status,
-                LightTextVariant.Detail,
-                lighten = true,
-                modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()),
-            )
+    }
+}
+
+@Composable
+private fun DepartureTimeHeadline(departure: Departure, modifier: Modifier = Modifier) {
+    val value = buildAnnotatedString {
+        append(time(departure.plannedDateTime))
+        if (departure.delayMinutes > 0 && !departure.cancelled) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                append("+${departure.delayMinutes}")
+            }
         }
     }
+    Text(
+        text = value,
+        modifier = modifier,
+        color = LightThemeTokens.colors.content,
+        maxLines = 1,
+        style = LightThemeTokens.typography.heading.copy(
+            fontSize = 34f.designVerticalPxToSp(),
+            lineHeight = 42.5f.designVerticalPxToSp(),
+        ),
+    )
 }
 
 @Composable
@@ -2015,14 +2118,31 @@ private fun DepartureHeadline(
 }
 
 @Composable
-private fun TrainPlatformBadges(trainType: String, platform: String?) {
+private fun TrainPlatformBadges(trainType: String, plannedPlatform: String?, actualPlatform: String?) {
     Row(
         modifier = Modifier.padding(top = 0.45f.gridUnitsAsDp()),
         horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         trainType.trim().takeIf(String::isNotBlank)?.let { TrainServiceBadge(it) }
-        platform?.takeIf(String::isNotBlank)?.let { PlatformBadge(it) }
+        displayedPlatform(plannedPlatform, actualPlatform)?.let { displayed ->
+            if (platformChanged(plannedPlatform, actualPlatform)) {
+                LightText(
+                    plannedPlatform.orEmpty().trim(),
+                    LightTextVariant.Detail,
+                    lighten = true,
+                    monospace = true,
+                    maxLines = 1,
+                )
+                LightText(
+                    "→",
+                    LightTextVariant.Detail,
+                    monospace = true,
+                    maxLines = 1,
+                )
+            }
+            PlatformBadge(displayed)
+        }
     }
 }
 
@@ -2034,6 +2154,30 @@ private fun TrainServiceBadge(service: String) {
 @Composable
 private fun PlatformBadge(platform: String) {
     TransportBadge(platform.trim(), inverted = true)
+}
+
+@Composable
+private fun PlatformChangeBadge(planned: String?, actual: String?) {
+    val displayed = displayedPlatform(planned, actual) ?: return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (platformChanged(planned, actual)) {
+            LightText(
+                planned.orEmpty().trim(),
+                LightTextVariant.Detail,
+                lighten = true,
+                monospace = true,
+                maxLines = 1,
+            )
+            LightText(
+                "→",
+                LightTextVariant.Detail,
+                monospace = true,
+                modifier = Modifier.padding(horizontal = 0.2f.gridUnitsAsDp()),
+                maxLines = 1,
+            )
+        }
+        PlatformBadge(displayed)
+    }
 }
 
 @Composable
@@ -2167,8 +2311,7 @@ private fun tripSummary(trip: TripOption, copy: Copy): String {
     val transferText = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}"
     return "${trip.durationMinutes} ${copy.minutes} · $transferText"
 }
-private fun departureStatus(departure: Departure, copy: Copy): String? = when {
-    departure.cancelled -> copy.cancelled
-    departure.delayMinutes > 0 -> "+${departure.delayMinutes} ${copy.minutes}"
-    else -> null
+internal fun departureDisplayTime(departure: Departure): String = buildString {
+    append(time(departure.plannedDateTime))
+    if (departure.delayMinutes > 0 && !departure.cancelled) append("+${departure.delayMinutes}")
 }

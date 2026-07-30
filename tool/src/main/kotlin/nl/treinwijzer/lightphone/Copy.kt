@@ -94,6 +94,8 @@ class Copy(private val language: Language) {
     val retry get() = value("Retry", "Opnieuw")
     val platform get() = value("Platform", "Spoor")
     val cancelled get() = value("Cancelled", "Opgeheven")
+    val journeyChanged get() = value("Journey changed", "Reis gewijzigd")
+    val platformChanged get() = value("Platform changed", "Spoor gewijzigd")
     val transfer get() = value("transfer", "overstap")
     val transfers get() = value("transfers", "overstappen")
     val minutes get() = value("min", "min")
