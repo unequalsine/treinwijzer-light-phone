@@ -105,7 +105,8 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
                     is ScreenMode.DisruptionDetails -> DisruptionDetailsContent(mode.disruption, copy, viewModel)
                     ScreenMode.Planner -> PlannerContent(state, copy, viewModel)
-                    is ScreenMode.DateTimeInput -> DateTimePickerContent(
+                    is ScreenMode.PlannerOptions -> PlannerOptionsContent(
+                        state,
                         mode.selection,
                         mode.timeMode,
                         copy,
@@ -354,14 +355,15 @@ private fun PlannerContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijze
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
             PlannerAction(copy.swap, prominent = false, modifier = Modifier.weight(1f), onClick = vm::swapPlannerStations)
-            PlannerAction(copy.time, prominent = false, modifier = Modifier.weight(1f), onClick = vm::openDateTimeInput)
+            PlannerAction(copy.options, prominent = false, modifier = Modifier.weight(1f), onClick = vm::openPlannerOptions)
             PlannerAction(copy.plan, prominent = true, modifier = Modifier.weight(1f), onClick = vm::planJourney)
         }
     }
 }
 
 @Composable
-private fun DateTimePickerContent(
+private fun PlannerOptionsContent(
+    state: TreinwijzerUiState,
     selection: PlannerDateTimeSelection,
     timeMode: PlannerTimeMode,
     copy: Copy,
@@ -369,7 +371,12 @@ private fun DateTimePickerContent(
 ) {
     val selectedDay = if (selection.dayOffset == 0) copy.today else copy.tomorrow
     val selectedTime = "%02d:%02d".format(Locale.ROOT, selection.hour, selection.minute)
-    ScreenFrame(copy.chooseTime, vm::back) {
+    ScreenFrame(copy.options, vm::back) {
+        Column(Modifier.fillMaxWidth().border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)) {
+            PlannerField("V", copy.via, state.plannerVia?.name ?: copy.chooseStation, divider = false) {
+                vm.openStationSearch(StationPurpose.VIA)
+            }
+        }
         Section(copy.planBy)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -429,7 +436,7 @@ private fun DateTimePickerContent(
             modifier = Modifier.fillMaxWidth().padding(top = 0.65f.gridUnitsAsDp()),
         )
         PlannerAction(
-            copy.useTime,
+            copy.useOptions,
             prominent = true,
             modifier = Modifier.fillMaxWidth().padding(top = 0.2f.gridUnitsAsDp()),
             onClick = vm::confirmPlannerDateTime,
@@ -1495,11 +1502,8 @@ private fun PlannerRouteCard(state: TreinwijzerUiState, copy: Copy, vm: Treinwij
         PlannerField("A", copy.origin, state.plannerOrigin?.name ?: copy.chooseStation, divider = true) {
             vm.openStationSearch(StationPurpose.ORIGIN)
         }
-        PlannerField("B", copy.destination, state.plannerDestination?.name ?: copy.chooseStation, divider = true) {
+        PlannerField("B", copy.destination, state.plannerDestination?.name ?: copy.chooseStation, divider = false) {
             vm.openStationSearch(StationPurpose.DESTINATION)
-        }
-        PlannerField("V", copy.via, state.plannerVia?.name ?: copy.chooseStation, divider = false) {
-            vm.openStationSearch(StationPurpose.VIA)
         }
     }
 }

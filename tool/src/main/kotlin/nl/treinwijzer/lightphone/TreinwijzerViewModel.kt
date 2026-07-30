@@ -95,7 +95,7 @@ sealed interface ScreenMode {
     data class Disruptions(val station: Station, val disruptions: List<Disruption>) : ScreenMode
     data class DisruptionDetails(val disruption: Disruption) : ScreenMode
     data object Planner : ScreenMode
-    data class DateTimeInput(
+    data class PlannerOptions(
         val selection: PlannerDateTimeSelection,
         val timeMode: PlannerTimeMode,
     ) : ScreenMode
@@ -255,7 +255,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
                 returnToPlanner { it.copy(plannerDestination = station) }
             }
             StationPurpose.VIA -> {
-                returnToPlanner { it.copy(plannerVia = station) }
+                returnToPlannerOptions { it.copy(plannerVia = station) }
             }
         }
     }
@@ -286,14 +286,14 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     fun clearVia() = _uiState.update { it.copy(plannerVia = null) }
 
     fun setPlannerTimeMode(timeMode: PlannerTimeMode) {
-        val mode = _uiState.value.mode as? ScreenMode.DateTimeInput ?: return
+        val mode = _uiState.value.mode as? ScreenMode.PlannerOptions ?: return
         replaceMode(mode.copy(timeMode = timeMode))
     }
 
-    fun openDateTimeInput() {
+    fun openPlannerOptions() {
         val preferences = _uiState.value.persisted.plannerPreferences
         updateMode(
-            ScreenMode.DateTimeInput(
+            ScreenMode.PlannerOptions(
                 selection = initialPlannerDateTimeSelection(preferences.dateTime),
                 timeMode = preferences.timeMode,
             ),
@@ -309,7 +309,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun confirmPlannerDateTime() {
-        val mode = _uiState.value.mode as? ScreenMode.DateTimeInput ?: return
+        val mode = _uiState.value.mode as? ScreenMode.PlannerOptions ?: return
         val formatted = plannerDateTimeInstant(mode.selection)
         viewModelScope.launch(Dispatchers.IO) {
             updatePersisted { state ->
@@ -325,7 +325,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     fun useCurrentTime() {
-        val returnToPlannerAfterUpdate = _uiState.value.mode is ScreenMode.DateTimeInput
+        val returnToPlannerAfterUpdate = _uiState.value.mode is ScreenMode.PlannerOptions
         viewModelScope.launch(Dispatchers.IO) {
             updatePersisted { state ->
                 state.copy(
@@ -575,7 +575,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private fun replaceMode(mode: ScreenMode) = _uiState.update { it.copy(mode = mode, errorModal = null) }
 
     private fun updateDateTimeSelection(transform: (PlannerDateTimeSelection) -> PlannerDateTimeSelection) {
-        val mode = _uiState.value.mode as? ScreenMode.DateTimeInput ?: return
+        val mode = _uiState.value.mode as? ScreenMode.PlannerOptions ?: return
         replaceMode(mode.copy(selection = transform(mode.selection)))
     }
 
@@ -589,6 +589,11 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private fun returnToPlanner(transform: (TreinwijzerUiState) -> TreinwijzerUiState = { it }) {
         screenHistory.previousMatching { it == ScreenMode.Planner }
         _uiState.update { transform(it).copy(mode = ScreenMode.Planner, errorModal = null) }
+    }
+
+    private fun returnToPlannerOptions(transform: (TreinwijzerUiState) -> TreinwijzerUiState = { it }) {
+        val options = screenHistory.previousMatching { it is ScreenMode.PlannerOptions } as? ScreenMode.PlannerOptions
+        _uiState.update { transform(it).copy(mode = options ?: ScreenMode.Planner, errorModal = null) }
     }
 
     private suspend fun showError(error: Throwable) = withContext(Dispatchers.Main) {

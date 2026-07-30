@@ -344,6 +344,25 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun screenHistoryReturnsViaSelectionToPlannerOptions() {
+        val history = ScreenHistory()
+        val options = ScreenMode.PlannerOptions(
+            selection = PlannerDateTimeSelection(dayOffset = 1, hour = 14, minute = 25),
+            timeMode = PlannerTimeMode.ARRIVAL,
+        )
+        val picker = ScreenMode.StationPicker(StationPurpose.VIA)
+        val index = ScreenMode.StationIndex(StationPurpose.VIA)
+
+        history.record(ScreenMode.Planner, options)
+        history.record(options, picker)
+        history.record(picker, index)
+        history.record(index, ScreenMode.StationResults(StationPurpose.VIA, "U", emptyList()))
+
+        assertEquals(options, history.previousMatching { it is ScreenMode.PlannerOptions })
+        assertEquals(ScreenMode.Planner, history.previous())
+    }
+
+    @Test
     fun screenHistoryCanResetWhenTrackingStarts() {
         val history = ScreenHistory()
         val request = PlannerRequest(
