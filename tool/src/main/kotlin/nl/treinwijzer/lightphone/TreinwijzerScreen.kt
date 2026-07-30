@@ -1344,26 +1344,29 @@ private fun JourneyResultCard(trip: TripOption, copy: Copy, onClick: () -> Unit)
             .lightClickable(onClick = onClick)
             .padding(0.7f.gridUnitsAsDp()),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            JourneyTimeRange(
-                trip = trip,
-                variant = LightTextVariant.Subheading,
-                modifier = Modifier.weight(1f),
-            )
-            LightText("→", LightTextVariant.Subheading, monospace = true)
-        }
+        JourneyTimeRange(
+            trip = trip,
+            variant = LightTextVariant.Subheading,
+        )
+        LightText(
+            tripSummary(trip, copy),
+            LightTextVariant.Detail,
+            lighten = true,
+            modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()),
+            maxLines = 1,
+        )
         Row(
-            Modifier.fillMaxWidth().padding(top = 0.45f.gridUnitsAsDp()),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 0.55f.gridUnitsAsDp())
+                .background(LightThemeTokens.colors.contentSecondary.copy(alpha = 0.28f))
+                .padding(horizontal = 0.5f.gridUnitsAsDp(), vertical = 0.4f.gridUnitsAsDp()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LightText(
-                "${trip.durationMinutes} ${copy.minutes}",
-                LightTextVariant.Detail,
-                lighten = true,
-                modifier = Modifier.weight(1f),
-            )
-            JourneyServiceSequence(trip)
+            Box(Modifier.weight(1f)) {
+                JourneyServiceSequence(trip)
+            }
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
         }
     }
 }
@@ -1374,7 +1377,7 @@ private fun JourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifi
     if (services.isEmpty()) return
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         services.forEachIndexed { index, service ->
