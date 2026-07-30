@@ -637,7 +637,6 @@ private fun TimeWithDelay(
             time,
             variant,
             color = color,
-            monospace = true,
             maxLines = 1,
             modifier = Modifier.alignByBaseline(),
         )
@@ -838,7 +837,7 @@ private fun TimelineStation(
                     maxLines = 2,
                 )
                 platform?.takeIf(String::isNotBlank)?.let {
-                    Box(Modifier.padding(start = 0.3f.gridUnitsAsDp())) {
+                    Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
                         PlatformBadge(it)
                     }
                 }
@@ -878,7 +877,7 @@ private fun TimelineStation(
                 connectAbove = connectAbove,
                 connectBelow = connectBelow,
                 markerInverted = markerInverted,
-                markerTopPadding = timelineStationTopPaddingGridUnits,
+                markerTopPadding = 0f,
             )
             Spacer(Modifier.weight(1f))
         }
@@ -960,7 +959,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
             copy = copy,
             markerInverted = true,
             connectAbove = true,
-            connectBelow = false,
+            connectBelow = true,
         )
         TimelineTransferWait(
             durationMinutes = transferMinutes(arrivingLeg, departingLeg),
@@ -975,7 +974,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
             delayMinutes = departingLeg.departureDelayMinutes,
             cancelled = departingLeg.cancelled,
             copy = copy,
-            connectAbove = false,
+            connectAbove = true,
             connectBelow = true,
         )
     }
@@ -1002,11 +1001,9 @@ private fun TimelineTransferWait(
             .fillMaxWidth()
             .padding(vertical = timelineTransferGapGridUnits.gridUnitsAsDp()),
     ) {
-        Spacer(
-            Modifier.width(
-                (timelineTimeColumnGridUnits + timelineRailColumnGridUnits + timelineContentPaddingGridUnits).gridUnitsAsDp(),
-            ),
-        )
+        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
+        TimelineLine()
+        Spacer(Modifier.width(timelineContentPaddingGridUnits.gridUnitsAsDp()))
         Column(
             Modifier
                 .weight(1f)
@@ -1038,6 +1035,7 @@ private fun TimelineDelay(text: String) {
         text = text,
         color = LightThemeTokens.colors.content,
         maxLines = 1,
+        modifier = Modifier.alignByBaseline(),
         style = TextStyle(
             fontSize = 24f.designVerticalPxToSp(),
             lineHeight = 27f.designVerticalPxToSp(),
@@ -1958,6 +1956,7 @@ private fun TransportBadge(text: String, inverted: Boolean) {
             color = foreground,
             monospace = true,
             maxLines = 1,
+            modifier = Modifier.alignByBaseline(),
         )
     }
 }
