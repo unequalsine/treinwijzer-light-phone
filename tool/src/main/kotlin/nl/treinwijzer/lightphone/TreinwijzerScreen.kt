@@ -837,7 +837,7 @@ private fun TimelineStation(
                 )
                 platform?.takeIf(String::isNotBlank)?.let {
                     Box(Modifier.padding(start = 0.3f.gridUnitsAsDp())) {
-                        Badge("${copy.platform} $it", inverted = true)
+                        PlatformBadge(it)
                     }
                 }
             }
@@ -1478,7 +1478,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
             ).joinToString(" ")
             if (service.isNotBlank()) Badge(service)
             (departure.actualTrack ?: departure.plannedTrack)?.takeIf(String::isNotBlank)?.let {
-                Badge("${copy.platform} $it", inverted = true)
+                PlatformBadge(it)
             }
         }
         departureStatus(departure, copy)?.let { status ->
@@ -1904,7 +1904,6 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
             trainType = departure.trainType,
             trainNumber = departure.trainNumber,
             platform = departure.actualTrack ?: departure.plannedTrack,
-            copy = copy,
         )
         departureStatus(departure, copy)?.let { status ->
             LightText(
@@ -1918,14 +1917,33 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
 }
 
 @Composable
-private fun TrainPlatformBadges(trainType: String, trainNumber: String?, platform: String?, copy: Copy) {
+private fun TrainPlatformBadges(trainType: String, trainNumber: String?, platform: String?) {
     Row(
         modifier = Modifier.padding(top = 0.45f.gridUnitsAsDp()),
         horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Badge(listOfNotNull(trainType.takeIf(String::isNotBlank), trainNumber?.takeIf(String::isNotBlank)).joinToString(" "))
-        platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
+        platform?.takeIf(String::isNotBlank)?.let { PlatformBadge(it) }
+    }
+}
+
+@Composable
+private fun PlatformBadge(platform: String) {
+    Box(
+        Modifier
+            .background(LightThemeTokens.colors.content)
+            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
+            .padding(horizontal = 0.5f.gridUnitsAsDp(), vertical = 0.16f.gridUnitsAsDp()),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(
+            text = platform.trim(),
+            variant = LightTextVariant.Paragraph,
+            color = LightThemeTokens.colors.background,
+            monospace = true,
+            maxLines = 1,
+        )
     }
 }
 
