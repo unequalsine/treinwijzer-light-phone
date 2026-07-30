@@ -271,7 +271,14 @@ private fun DepartureDetailsContent(mode: ScreenMode.DepartureDetails, copy: Cop
             }
         } else if (departure.routeStations.isNotEmpty()) {
             Section(copy.routeStops)
-            departure.routeStations.forEach { station -> ListLabel(station) }
+            departure.routeStations.forEachIndexed { index, station ->
+                DepartureRouteStationRow(
+                    station = station,
+                    first = index == 0,
+                    last = index == departure.routeStations.lastIndex,
+                    copy = copy,
+                )
+            }
         }
         if (departure.messages.isNotEmpty()) {
             Section(copy.information)
@@ -1402,39 +1409,76 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .padding(0.8f.gridUnitsAsDp()),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.6f.gridUnitsAsDp()),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             LightText(time(departure.actualDateTime), LightTextVariant.Subheading, monospace = true)
-            LightText(departure.direction, LightTextVariant.Subheading, align = TextAlign.End, modifier = Modifier.weight(1f), maxLines = 2)
+            LightText("→", LightTextVariant.Paragraph, monospace = true)
+            LightText(
+                departure.direction,
+                LightTextVariant.Subheading,
+                align = TextAlign.End,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+            )
         }
-        TrainPlatformBadges(departure.trainType, departure.trainNumber, departure.actualTrack ?: departure.plannedTrack, copy)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LightText(
+                dateOnly(departure.actualDateTime),
+                LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+            val service = listOfNotNull(
+                departure.trainType.takeIf(String::isNotBlank),
+                departure.trainNumber?.takeIf(String::isNotBlank),
+            ).joinToString(" ")
+            if (service.isNotBlank()) Badge(service)
+            (departure.actualTrack ?: departure.plannedTrack)?.takeIf(String::isNotBlank)?.let {
+                Badge("${copy.platform} $it", inverted = true)
+            }
+        }
         departureStatus(departure, copy)?.let { status ->
             LightText(status, LightTextVariant.Detail, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()))
         }
-        LightText(dateTime(departure.actualDateTime), LightTextVariant.Detail, lighten = true, modifier = Modifier.padding(top = 0.35f.gridUnitsAsDp()))
     }
 }
 
 @Composable
 private fun DepartureStopRow(stop: DepartureStop, first: Boolean, last: Boolean, copy: Copy) {
-    val value = stop.actualDeparture ?: stop.actualArrival ?: stop.plannedDeparture ?: stop.plannedArrival.orEmpty()
-    val platform = stop.actualPlatform ?: stop.plannedPlatform
-    Row(Modifier.fillMaxWidth().padding(vertical = 0.35f.gridUnitsAsDp()), verticalAlignment = Alignment.Top) {
-        TimelineTime(value.takeIf(String::isNotBlank)?.let(::time).orEmpty())
-        Box(Modifier.width(0.75f.gridUnitsAsDp()), contentAlignment = Alignment.TopCenter) {
-            LightText(if (first || last) "■" else "□", LightTextVariant.Superfine, monospace = true)
-        }
-        Column(Modifier.weight(1f)) {
-            LightText(stop.name, LightTextVariant.ParagraphWide, maxLines = 2)
-            platform?.takeIf(String::isNotBlank)?.let { Badge("${copy.platform} $it", inverted = true) }
-            Spacer(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 0.45f.gridUnitsAsDp())
-                    .height(1f.designVerticalPxToDp())
-                    .background(LightThemeTokens.colors.contentSecondary),
-            )
-        }
-    }
+    TimelineStation(
+        station = stop.name,
+        plannedTime = departureStopPlannedTime(stop),
+        platform = stop.actualPlatform ?: stop.plannedPlatform,
+        delayMinutes = departureStopDelayMinutes(stop),
+        cancelled = false,
+        copy = copy,
+        markerInverted = !first && !last,
+        connectAbove = !first,
+        connectBelow = !last,
+    )
+}
+
+@Composable
+private fun DepartureRouteStationRow(station: String, first: Boolean, last: Boolean, copy: Copy) {
+    TimelineStation(
+        station = station,
+        plannedTime = "",
+        platform = null,
+        delayMinutes = 0,
+        cancelled = false,
+        copy = copy,
+        markerInverted = !first && !last,
+        connectAbove = !first,
+        connectBelow = !last,
+    )
 }
 
 @Composable
@@ -1914,6 +1958,7 @@ private const val timelineTransferGapGridUnits = 0.9f
 private const val timelinePastContentAlpha = 0.46f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val dateFormatter = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
+private val dateOnlyFormatter = DateTimeFormatter.ofPattern("EEE d MMM")
 private val compactOffsetFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")
 private val amsterdam = ZoneId.of("Europe/Amsterdam")
 private fun parsedInstant(value: String): Instant? =
@@ -1935,6 +1980,16 @@ private fun transferMinutes(arrivingLeg: TripLeg, departingLeg: TripLeg): Int? {
 }
 internal fun time(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(timeFormatter) ?: value
 internal fun dateTime(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(dateFormatter) ?: value
+internal fun dateOnly(value: String): String = parsedInstant(value)?.atZone(amsterdam)?.format(dateOnlyFormatter) ?: value
+internal fun departureStopPlannedTime(stop: DepartureStop): String =
+    stop.plannedDeparture ?: stop.plannedArrival ?: stop.actualDeparture ?: stop.actualArrival.orEmpty()
+internal fun departureStopDelayMinutes(stop: DepartureStop): Int {
+    val planned = stop.plannedDeparture ?: stop.plannedArrival ?: return 0
+    val actual = if (stop.plannedDeparture != null) stop.actualDeparture else stop.actualArrival
+    val plannedInstant = parsedInstant(planned) ?: return 0
+    val actualInstant = actual?.let(::parsedInstant) ?: return 0
+    return Duration.between(plannedInstant, actualInstant).toMinutes().toInt().coerceAtLeast(0)
+}
 private fun price(value: JourneyPrice): String = String.format(Locale.UK, "€ %.2f", value.amountEuroCents / 100.0)
 private fun journeyTitle(journey: TripOption): String = "${journey.legs.firstOrNull()?.origin?.name.orEmpty()} → ${journey.legs.lastOrNull()?.destination?.name.orEmpty()}"
 internal fun journeyServiceLabels(trip: TripOption): List<String> =

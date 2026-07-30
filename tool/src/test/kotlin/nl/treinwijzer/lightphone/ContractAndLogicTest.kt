@@ -182,6 +182,29 @@ class ContractAndLogicTest {
     fun formatsNsCompactOffsetTimestampsInAmsterdamTime() {
         assertEquals("18:50", time("2026-07-29T18:50:00+0200"))
         assertEquals("18:50", time("2026-07-29T16:50:00Z"))
+        assertEquals("Thu 30 Jul", dateOnly("2026-07-30T09:55:00+0200"))
+    }
+
+    @Test
+    fun departureStopTimelineUsesPlannedTimeWithCalculatedDelay() {
+        val departureStop = DepartureStop(
+            id = "stop-1",
+            name = "Zoetermeer",
+            plannedDeparture = "2026-07-30T09:55:00+0200",
+            actualDeparture = "2026-07-30T09:58:00+0200",
+            plannedArrival = "2026-07-30T09:54:00+0200",
+            actualArrival = "2026-07-30T09:57:00+0200",
+        )
+        val arrivalOnlyStop = departureStop.copy(
+            id = "stop-2",
+            plannedDeparture = null,
+            actualDeparture = null,
+        )
+
+        assertEquals("2026-07-30T09:55:00+0200", departureStopPlannedTime(departureStop))
+        assertEquals(3, departureStopDelayMinutes(departureStop))
+        assertEquals("2026-07-30T09:54:00+0200", departureStopPlannedTime(arrivalOnlyStop))
+        assertEquals(3, departureStopDelayMinutes(arrivalOnlyStop))
     }
 
     @Test
