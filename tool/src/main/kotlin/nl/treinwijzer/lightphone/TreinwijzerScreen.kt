@@ -1973,8 +1973,17 @@ private fun UtilityAction(
             .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        icon?.let { HomeMenuIcon(it) }
-        marker?.let { LightText(it, LightTextVariant.Subheading, monospace = true) }
+        if (icon != null || marker != null) {
+            Box(
+                modifier = Modifier
+                    .width(0.9f.gridUnitsAsDp())
+                    .height(0.9f.gridUnitsAsDp()),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon?.let { HomeMenuIcon(it) }
+                marker?.let { LightText(it, LightTextVariant.Subheading, monospace = true) }
+            }
+        }
         LightText(
             title,
             LightTextVariant.Paragraph,
