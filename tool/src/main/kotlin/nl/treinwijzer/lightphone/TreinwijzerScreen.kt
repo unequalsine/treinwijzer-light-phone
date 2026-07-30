@@ -668,18 +668,35 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
             .padding(vertical = 0.6f.gridUnitsAsDp()),
     ) {
         JourneyChangeBanner(trip, copy)
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            JourneyMetric(
+                icon = LightIcons.ALARM,
+                value = formatJourneyDuration(trip.durationMinutes),
+                spokenLabel = "${trip.durationMinutes} ${copy.minutes}",
+            )
+            Spacer(Modifier.width(0.45f.gridUnitsAsDp()))
+            JourneyMetric(
+                icon = LightIcons.REVERSE_ORDER,
+                value = trip.transfers.toString(),
+                spokenLabel = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}",
+            )
+            Spacer(Modifier.width(0.65f.gridUnitsAsDp()))
             TimeWithDelay(
                 time = time(trip.plannedDeparture),
                 delayMinutes = if (cancelled) 0 else firstLeg?.departureDelayMinutes ?: 0,
                 variant = LightTextVariant.Detail,
             )
-            LightText("  →  ", LightTextVariant.Detail, monospace = true, maxLines = 1)
+            SummaryArrow(Modifier.padding(horizontal = 0.18f.gridUnitsAsDp()))
             TimeWithDelay(
                 time = time(trip.plannedArrival),
                 delayMinutes = if (cancelled) 0 else lastLeg?.arrivalDelayMinutes ?: 0,
                 variant = LightTextVariant.Detail,
             )
+            Spacer(Modifier.weight(1f))
+            CompactJourneyServiceSequence(trip)
         }
         LightText(
             journeyTitle(trip),
@@ -687,25 +704,18 @@ private fun JourneyOverview(trip: TripOption, copy: Copy) {
             modifier = Modifier.padding(top = 0.2f.gridUnitsAsDp()),
             maxLines = 2,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            JourneyMetric(
-                icon = LightIcons.ALARM,
-                value = trip.durationMinutes.toString(),
-                spokenLabel = "${trip.durationMinutes} ${copy.minutes}",
-            )
-            Spacer(Modifier.width(0.65f.gridUnitsAsDp()))
-            JourneyMetric(
-                icon = LightIcons.REVERSE_ORDER,
-                value = trip.transfers.toString(),
-                spokenLabel = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}",
-            )
-            Spacer(Modifier.weight(1f))
-            JourneyServiceSequence(trip)
-        }
     }
+}
+
+@Composable
+private fun SummaryArrow(modifier: Modifier = Modifier) {
+    LightText(
+        "→",
+        LightTextVariant.Detail,
+        monospace = true,
+        maxLines = 1,
+        modifier = modifier.offset(y = (-2f).designVerticalPxToDp()),
+    )
 }
 
 @Composable
@@ -1626,6 +1636,50 @@ private fun JourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifi
 }
 
 @Composable
+private fun CompactJourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifier) {
+    val services = journeyServiceLabels(trip)
+    if (services.isEmpty()) return
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        services.forEachIndexed { index, service ->
+            if (index > 0) {
+                LightText(
+                    "→",
+                    LightTextVariant.Superfine,
+                    monospace = true,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .padding(horizontal = 0.12f.gridUnitsAsDp())
+                        .offset(y = (-2f).designVerticalPxToDp()),
+                )
+            }
+            CompactServiceBadge(service)
+        }
+    }
+}
+
+@Composable
+private fun CompactServiceBadge(service: String) {
+    Box(
+        modifier = Modifier
+            .height(0.9f.gridUnitsAsDp())
+            .background(LightThemeTokens.colors.contentSecondary.copy(alpha = 0.28f))
+            .padding(horizontal = 0.3f.gridUnitsAsDp()),
+        contentAlignment = Alignment.Center,
+    ) {
+        LightText(
+            service.uppercase(Locale.ROOT),
+            LightTextVariant.Superfine,
+            monospace = true,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
 private fun DepartureHero(departure: Departure, copy: Copy) {
     val service = departure.trainType.trim()
     Column(
@@ -2332,8 +2386,10 @@ internal fun journeyServiceLabels(trip: TripOption): List<String> =
     trip.legs.mapNotNull { leg -> leg.trainType.trim().takeIf(String::isNotBlank) }
 private fun tripSummary(trip: TripOption, copy: Copy): String {
     val transferText = "${trip.transfers} ${if (trip.transfers == 1) copy.transfer else copy.transfers}"
-    return "${trip.durationMinutes} ${copy.minutes} · $transferText"
+    return "${formatJourneyDuration(trip.durationMinutes)} · $transferText"
 }
+internal fun formatJourneyDuration(durationMinutes: Int): String =
+    "${durationMinutes.coerceAtLeast(0) / 60}:${(durationMinutes.coerceAtLeast(0) % 60).toString().padStart(2, '0')}"
 internal fun departureDisplayTime(departure: Departure): String = buildString {
     append(time(departure.plannedDateTime))
     if (departure.delayMinutes > 0 && !departure.cancelled) append("+${departure.delayMinutes}")

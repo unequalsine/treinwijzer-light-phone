@@ -235,6 +235,13 @@ class ContractAndLogicTest {
     }
 
     @Test
+    fun journeyDurationUsesHoursAndTwoDigitMinutes() {
+        assertEquals("0:45", formatJourneyDuration(45))
+        assertEquals("1:28", formatJourneyDuration(88))
+        assertEquals("2:00", formatJourneyDuration(120))
+    }
+
+    @Test
     fun journeyChangesPrioritiseCancellationAndExposeOtherModifications() {
         val trip = json.decodeFromString<TripOption>(fixture("trip-contract.json"))
         val unchangedLeg = trip.legs.single().copy(
