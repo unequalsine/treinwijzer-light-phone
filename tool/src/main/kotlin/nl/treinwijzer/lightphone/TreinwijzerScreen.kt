@@ -714,7 +714,7 @@ private fun SummaryArrow(modifier: Modifier = Modifier) {
         LightTextVariant.Detail,
         monospace = true,
         maxLines = 1,
-        modifier = modifier.offset(y = (-2f).designVerticalPxToDp()),
+        modifier = modifier.offset(y = (-6f).designVerticalPxToDp()),
     )
 }
 
