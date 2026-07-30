@@ -371,13 +371,22 @@ private fun DateTimePickerContent(
     val selectedTime = "%02d:%02d".format(Locale.ROOT, selection.hour, selection.minute)
     ScreenFrame(copy.chooseTime, vm::back) {
         Section(copy.planBy)
-        SegmentedChoices(
-            left = copy.leaving,
-            right = copy.arriving,
-            leftSelected = timeMode == PlannerTimeMode.DEPARTURE,
-            onLeft = { vm.setPlannerTimeMode(PlannerTimeMode.DEPARTURE) },
-            onRight = { vm.setPlannerTimeMode(PlannerTimeMode.ARRIVAL) },
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
+        ) {
+            SegmentChoice(copy.leaveNow, false, Modifier.weight(1f), vm::useCurrentTime)
+            SegmentChoice(
+                copy.departBy,
+                selected = timeMode == PlannerTimeMode.DEPARTURE,
+                modifier = Modifier.weight(1f),
+            ) { vm.setPlannerTimeMode(PlannerTimeMode.DEPARTURE) }
+            SegmentChoice(
+                copy.arriveAt,
+                selected = timeMode == PlannerTimeMode.ARRIVAL,
+                modifier = Modifier.weight(1f),
+            ) { vm.setPlannerTimeMode(PlannerTimeMode.ARRIVAL) }
+        }
         Section(copy.day)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -419,13 +428,12 @@ private fun DateTimePickerContent(
             align = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 0.65f.gridUnitsAsDp()),
         )
-        Row(
+        PlannerAction(
+            copy.useTime,
+            prominent = true,
             modifier = Modifier.fillMaxWidth().padding(top = 0.2f.gridUnitsAsDp()),
-            horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
-        ) {
-            PlannerAction(copy.useNow, prominent = false, modifier = Modifier.weight(1f), onClick = vm::useCurrentTime)
-            PlannerAction(copy.useTime, prominent = true, modifier = Modifier.weight(1f), onClick = vm::confirmPlannerDateTime)
-        }
+            onClick = vm::confirmPlannerDateTime,
+        )
     }
 }
 
