@@ -182,7 +182,6 @@ class ContractAndLogicTest {
     fun formatsNsCompactOffsetTimestampsInAmsterdamTime() {
         assertEquals("18:50", time("2026-07-29T18:50:00+0200"))
         assertEquals("18:50", time("2026-07-29T16:50:00Z"))
-        assertEquals("Thu 30 Jul", dateOnly("2026-07-30T09:55:00+0200"))
     }
 
     @Test
