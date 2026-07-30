@@ -22,6 +22,7 @@ class Copy(private val language: Language) {
     val journeyDetails get() = value("Journey details", "Reisdetails")
     val journeyTimeline get() = value("Journey timeline", "Reisverloop")
     val favourites get() = value("Favourites", "Favorieten")
+    val manageFavourites get() = value("Manage favourites", "Favorieten beheren")
     val settings get() = value("Settings", "Instellingen")
     val nearest get() = value("Nearest stations", "Stations in de buurt")
     val nearestShort get() = value("Nearest", "Dichtstbij")

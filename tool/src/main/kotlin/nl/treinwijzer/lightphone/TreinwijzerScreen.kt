@@ -152,12 +152,12 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
         if (state.persisted.favouriteStations.isNotEmpty()) {
             Section(copy.favouriteStations)
             state.persisted.favouriteStations.take(4).forEach { station ->
-                ListAction(station.name, copy.departures) { vm.loadDepartures(station) }
+                ListAction(station.name) { vm.loadDepartures(station) }
             }
         }
         Section(copy.more)
-        ListAction(copy.favourites, copy.favouriteRoutes, vm::openFavourites)
-        ListAction(copy.settings, if (state.persisted.language == Language.ENGLISH) copy.english else copy.dutch, vm::openSettings)
+        ListAction(copy.manageFavourites, onClick = vm::openFavourites)
+        ListAction(copy.settings, onClick = vm::openSettings)
     }
 }
 
