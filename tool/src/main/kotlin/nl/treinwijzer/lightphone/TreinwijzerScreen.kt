@@ -40,6 +40,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
@@ -1634,7 +1635,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             DepartureTimeHeadline(departure = departure)
             Spacer(Modifier.width(0.75f.gridUnitsAsDp()))
@@ -1643,7 +1644,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 0.45f.gridUnitsAsDp()),
-                maxLines = 1,
+                maxLines = 2,
             )
             if (service.isNotBlank()) TrainServiceBadge(service)
             displayedPlatform(departure.plannedTrack, departure.actualTrack)?.let {
@@ -2127,6 +2128,7 @@ private fun DepartureHeadline(
         modifier = modifier,
         color = LightThemeTokens.colors.content,
         maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
         style = LightThemeTokens.typography.heading.copy(
             fontSize = 34f.designVerticalPxToSp(),
             lineHeight = 42.5f.designVerticalPxToSp(),
