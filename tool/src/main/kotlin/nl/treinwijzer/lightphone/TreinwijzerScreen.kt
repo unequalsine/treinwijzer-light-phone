@@ -977,6 +977,7 @@ private fun TimelineStation(
         Column(
             modifier = Modifier
                 .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                .offset(y = timelineTimeOpticalOffsetPx.designVerticalPxToDp())
                 .padding(
                     end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp(),
                     bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
@@ -1005,6 +1006,7 @@ private fun TimelineStation(
         Column(
             Modifier
                 .weight(1f)
+                .offset(y = timelineStationOpticalOffsetPx.designVerticalPxToDp())
                 .padding(
                     start = timelineContentPaddingGridUnits.gridUnitsAsDp(),
                     bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
@@ -2284,6 +2286,9 @@ private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
 private const val timelineStationMarkerCentrePx = 18.75f
+// Digits and mixed-case station names sit at different optical heights despite sharing a baseline.
+private const val timelineTimeOpticalOffsetPx = 6f
+private const val timelineStationOpticalOffsetPx = 3f
 private const val timelineTransferGapGridUnits = 0.9f
 private const val timelinePastContentAlpha = 0.46f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
