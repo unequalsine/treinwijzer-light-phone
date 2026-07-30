@@ -1533,10 +1533,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
             Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val service = listOfNotNull(
-                departure.trainType.takeIf(String::isNotBlank),
-                departure.trainNumber?.takeIf(String::isNotBlank),
-            ).joinToString(" ")
+            val service = departure.trainType.trim()
             val platform = (departure.actualTrack ?: departure.plannedTrack)?.takeIf(String::isNotBlank)
             Spacer(Modifier.weight(1f))
             if (service.isNotBlank()) TrainServiceBadge(service)
@@ -1970,7 +1967,6 @@ private fun DepartureCard(departure: Departure, copy: Copy, onClick: () -> Unit)
         }
         TrainPlatformBadges(
             trainType = departure.trainType,
-            trainNumber = departure.trainNumber,
             platform = departure.actualTrack ?: departure.plannedTrack,
         )
         departureStatus(departure, copy)?.let { status ->
@@ -2005,13 +2001,13 @@ private fun DepartureHeadline(
 }
 
 @Composable
-private fun TrainPlatformBadges(trainType: String, trainNumber: String?, platform: String?) {
+private fun TrainPlatformBadges(trainType: String, platform: String?) {
     Row(
         modifier = Modifier.padding(top = 0.45f.gridUnitsAsDp()),
         horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TrainServiceBadge(listOfNotNull(trainType.takeIf(String::isNotBlank), trainNumber?.takeIf(String::isNotBlank)).joinToString(" "))
+        trainType.trim().takeIf(String::isNotBlank)?.let { TrainServiceBadge(it) }
         platform?.takeIf(String::isNotBlank)?.let { PlatformBadge(it) }
     }
 }
