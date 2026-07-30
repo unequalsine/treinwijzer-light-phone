@@ -1626,41 +1626,31 @@ private fun JourneyServiceSequence(trip: TripOption, modifier: Modifier = Modifi
 
 @Composable
 private fun DepartureHero(departure: Departure, copy: Copy) {
+    val service = departure.trainType.trim()
     Column(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 0.6f.gridUnitsAsDp()),
     ) {
         Row(
-            Modifier.fillMaxWidth(),
-        ) {
-            DepartureTimeHeadline(
-                departure = departure,
-                modifier = Modifier.alignByBaseline(),
-            )
-            DepartureHeadline(
-                text = departure.direction,
-                align = TextAlign.End,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 0.6f.gridUnitsAsDp())
-                    .alignByBaseline(),
-                maxLines = 2,
-            )
-        }
-        DepartureChangeBanner(departure, copy)
-        Row(
-            Modifier.fillMaxWidth().padding(top = 0.55f.gridUnitsAsDp()),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val service = departure.trainType.trim()
-            Spacer(Modifier.weight(1f))
+            DepartureTimeHeadline(departure = departure)
+            DepartureHeadline(
+                text = departure.direction,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 0.45f.gridUnitsAsDp()),
+                maxLines = 1,
+            )
             if (service.isNotBlank()) TrainServiceBadge(service)
             displayedPlatform(departure.plannedTrack, departure.actualTrack)?.let {
                 if (service.isNotBlank()) Spacer(Modifier.width(0.35f.gridUnitsAsDp()))
                 PlatformChangeBadge(departure.plannedTrack, departure.actualTrack)
             }
         }
+        DepartureChangeBanner(departure, copy)
     }
 }
 
