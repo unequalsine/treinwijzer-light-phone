@@ -1629,8 +1629,7 @@ private fun DepartureHero(departure: Departure, copy: Copy) {
     Column(
         Modifier
             .fillMaxWidth()
-            .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .padding(0.8f.gridUnitsAsDp()),
+            .padding(vertical = 0.6f.gridUnitsAsDp()),
     ) {
         Row(
             Modifier.fillMaxWidth(),
