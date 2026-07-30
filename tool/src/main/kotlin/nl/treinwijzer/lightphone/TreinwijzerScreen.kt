@@ -889,80 +889,64 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
     isPast: Boolean = false,
 ) {
-    Box(Modifier.fillMaxWidth().timelinePastAlpha(isPast)) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = timelineStationTopPaddingGridUnits.gridUnitsAsDp()),
-        ) {
+    Column(Modifier.timelinePastAlpha(isPast)) {
+        Row(Modifier.fillMaxWidth().height(timelineStationHeightPx.designVerticalPxToDp())) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                    .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
+                horizontalArrangement = Arrangement.End,
             ) {
                 LightText(
                     time(plannedTime),
                     LightTextVariant.Subheading,
-                    modifier = Modifier
-                        .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
-                        .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp())
-                        .alignByBaseline(),
+                    modifier = Modifier.alignByBaseline(),
                     align = TextAlign.End,
                     maxLines = 1,
                 )
-                Spacer(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()))
-                LightText(
-                    station,
-                    LightTextVariant.Subheading,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = timelineContentPaddingGridUnits.gridUnitsAsDp())
-                        .alignByBaseline(),
-                    maxLines = 2,
-                )
-                platform?.takeIf(String::isNotBlank)?.let {
-                    Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
-                        PlatformBadge(it)
-                    }
+                if (delayMinutes > 0) {
+                    TimelineDelay("+$delayMinutes", Modifier.alignByBaseline())
                 }
             }
-            if (delayMinutes > 0) {
-                Row(
-                    modifier = Modifier
-                        .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
-                        .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TimelineDelay("+$delayMinutes")
-                }
-            }
-            if (cancelled) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = (
-                                timelineTimeColumnGridUnits +
-                                    timelineRailColumnGridUnits +
-                                    timelineContentPaddingGridUnits
-                            ).gridUnitsAsDp(),
-                            top = 0.3f.gridUnitsAsDp(),
-                        ),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    Badge(copy.cancelled, inverted = true)
-                }
-            }
-            Spacer(Modifier.height(timelineStationBottomPaddingGridUnits.gridUnitsAsDp()))
-        }
-        Row(Modifier.fillMaxSize()) {
-            Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
             TimelineRail(
                 connectAbove = connectAbove,
                 connectBelow = connectBelow,
                 markerInverted = markerInverted,
                 markerTopPadding = 0f,
             )
-            Spacer(Modifier.weight(1f))
+            LightText(
+                station,
+                LightTextVariant.Subheading,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = timelineContentPaddingGridUnits.gridUnitsAsDp())
+                    .alignByBaseline(),
+                maxLines = 2,
+            )
+            platform?.takeIf(String::isNotBlank)?.let {
+                Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
+                    PlatformBadge(it)
+                }
+            }
         }
+        if (cancelled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = (
+                            timelineTimeColumnGridUnits +
+                                timelineRailColumnGridUnits +
+                                timelineContentPaddingGridUnits
+                        ).gridUnitsAsDp(),
+                        top = 0.3f.gridUnitsAsDp(),
+                    ),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Badge(copy.cancelled, inverted = true)
+            }
+        }
+        Spacer(Modifier.height(timelineStationBottomPaddingGridUnits.gridUnitsAsDp()))
     }
 }
 
@@ -1112,12 +1096,12 @@ private fun TimelineTransferWait(
 }
 
 @Composable
-private fun TimelineDelay(text: String) {
+private fun TimelineDelay(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = LightThemeTokens.colors.content,
         maxLines = 1,
-        modifier = Modifier.alignByBaseline(),
+        modifier = modifier,
         style = TextStyle(
             fontSize = 24f.designVerticalPxToSp(),
             lineHeight = 27f.designVerticalPxToSp(),
@@ -1134,8 +1118,8 @@ private fun TimelineRail(
     markerInverted: Boolean,
     markerTopPadding: Float,
 ) {
-    val markerLineCentre = markerTopPadding + 0.45f
-    val markerLineCentreDp = markerLineCentre.gridUnitsAsDp()
+    val markerLineCentre = markerTopPadding + 24f
+    val markerLineCentreDp = markerLineCentre.designVerticalPxToDp()
     val lineWidth = 2f.designVerticalPxToDp()
     val lineColour = LightThemeTokens.colors.content
     Box(
@@ -1166,10 +1150,10 @@ private fun TimelineRail(
     ) {
         Box(
             Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = markerTopPadding.gridUnitsAsDp())
+                .align(Alignment.Center)
+                .padding(top = markerTopPadding.designVerticalPxToDp())
                 .width(timelineRailColumnGridUnits.gridUnitsAsDp())
-                .height(0.9f.gridUnitsAsDp()),
+                .height(28f.designVerticalPxToDp()),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -2038,7 +2022,7 @@ private fun TransportBadge(text: String, inverted: Boolean) {
             color = foreground,
             monospace = true,
             maxLines = 1,
-            modifier = Modifier.alignByBaseline(),
+            // modifier = Modifier.alignByBaseline(),
         )
     }
 }
@@ -2111,6 +2095,7 @@ private const val timelineStationTopPaddingGridUnits = 0.45f
 private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
+private const val timelineStationHeightPx = 37.5f
 private const val timelineTransferGapGridUnits = 0.9f
 private const val timelinePastContentAlpha = 0.46f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
