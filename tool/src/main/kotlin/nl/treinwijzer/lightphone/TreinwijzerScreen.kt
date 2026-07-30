@@ -478,6 +478,9 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
+            mode.request?.let { request ->
+                PrimaryAction(copy.saveRoute, "", Modifier.weight(1f)) { vm.saveRoute(request) }
+            }
             PrimaryAction(
                 title = if (active) copy.openActiveJourney else copy.track,
                 detail = "",
@@ -487,9 +490,6 @@ private fun TripDetailsContent(mode: ScreenMode.TripDetails, state: TreinwijzerU
                     Unit
                 },
             )
-            mode.request?.let { request ->
-                PrimaryAction(copy.saveRoute, "", Modifier.weight(1f)) { vm.saveRoute(request) }
-            }
         }
         Section(copy.journeyTimeline)
         JourneyTimeline(trip, copy)
