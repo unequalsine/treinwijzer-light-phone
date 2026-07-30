@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -889,72 +890,97 @@ private fun TimelineStation(
     connectBelow: Boolean = false,
     isPast: Boolean = false,
 ) {
-    Column(Modifier.timelinePastAlpha(isPast)) {
-        Row(Modifier.fillMaxWidth().height(timelineStationHeightPx.designVerticalPxToDp())) {
-            Row(
-                modifier = Modifier
-                    .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
-                    .padding(end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp()),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                LightText(
-                    time(plannedTime),
-                    LightTextVariant.Subheading,
-                    modifier = Modifier.alignByBaseline(),
-                    align = TextAlign.End,
-                    maxLines = 1,
-                )
-                if (delayMinutes > 0) {
-                    TimelineDelay("+$delayMinutes", Modifier.alignByBaseline())
-                }
-            }
-            TimelineRail(
-                connectAbove = connectAbove,
-                connectBelow = connectBelow,
-                markerInverted = markerInverted,
-                markerTopPadding = 0f,
-            )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .timelinePastAlpha(isPast),
+    ) {
+        Column(
+            modifier = Modifier
+                .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                .padding(
+                    end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp(),
+                    bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
+                ),
+            horizontalAlignment = Alignment.End,
+        ) {
             LightText(
-                station,
+                time(plannedTime),
                 LightTextVariant.Subheading,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = timelineContentPaddingGridUnits.gridUnitsAsDp())
-                    .alignByBaseline(),
-                maxLines = 2,
+                align = TextAlign.End,
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 1,
             )
-            platform?.takeIf(String::isNotBlank)?.let {
-                Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
-                    PlatformBadge(it)
+            if (delayMinutes > 0) {
+                TimelineDelay(
+                    "+$delayMinutes",
+                    Modifier.padding(top = 0.05f.gridUnitsAsDp()),
+                )
+            }
+        }
+        TimelineRail(
+            connectAbove = connectAbove,
+            connectBelow = connectBelow,
+            markerInverted = markerInverted,
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(
+                    start = timelineContentPaddingGridUnits.gridUnitsAsDp(),
+                    bottom = timelineStationBottomPaddingGridUnits.gridUnitsAsDp(),
+                ),
+        ) {
+            Row(Modifier.fillMaxWidth()) {
+                LightText(
+                    station,
+                    LightTextVariant.Subheading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .alignByBaseline(),
+                    maxLines = 2,
+                )
+                platform?.takeIf(String::isNotBlank)?.let {
+                    Box(Modifier.padding(start = 0.3f.gridUnitsAsDp()).alignByBaseline()) {
+                        PlatformBadge(it)
+                    }
+                }
+            }
+            if (cancelled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 0.3f.gridUnitsAsDp()),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Badge(copy.cancelled, inverted = true)
                 }
             }
         }
-        if (cancelled) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = (
-                            timelineTimeColumnGridUnits +
-                                timelineRailColumnGridUnits +
-                                timelineContentPaddingGridUnits
-                        ).gridUnitsAsDp(),
-                        top = 0.3f.gridUnitsAsDp(),
-                    ),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                Badge(copy.cancelled, inverted = true)
-            }
-        }
-        Spacer(Modifier.height(timelineStationBottomPaddingGridUnits.gridUnitsAsDp()))
     }
 }
 
 @Composable
 private fun TimelineRide(leg: TripLeg, copy: Copy, isPast: Boolean = false) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).timelinePastAlpha(isPast)) {
+    val timeColumnWidth = timelineTimeColumnGridUnits.gridUnitsAsDp()
+    val railColumnWidth = timelineRailColumnGridUnits.gridUnitsAsDp()
+    val lineWidth = 2f.designVerticalPxToDp()
+    val lineColour = LightThemeTokens.colors.content
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val centreX = timeColumnWidth.toPx() + railColumnWidth.toPx() / 2f
+                drawLine(
+                    color = lineColour,
+                    start = Offset(centreX, 0f),
+                    end = Offset(centreX, size.height),
+                    strokeWidth = lineWidth.toPx(),
+                )
+            }
+            .timelinePastAlpha(isPast),
+    ) {
         Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
-        TimelineLine()
+        Spacer(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()))
         Column(
             Modifier
                 .weight(1f)
@@ -1025,7 +1051,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
             copy = copy,
             markerInverted = true,
             connectAbove = true,
-            connectBelow = true,
+            connectBelow = false,
         )
         TimelineTransferWait(
             durationMinutes = transferMinutes(arrivingLeg, departingLeg),
@@ -1040,7 +1066,7 @@ private fun TimelineTransfer(arrivingLeg: TripLeg, departingLeg: TripLeg, copy: 
             delayMinutes = departingLeg.departureDelayMinutes,
             cancelled = departingLeg.cancelled,
             copy = copy,
-            connectAbove = true,
+            connectAbove = false,
             connectBelow = true,
         )
     }
@@ -1067,9 +1093,11 @@ private fun TimelineTransferWait(
             .fillMaxWidth()
             .padding(vertical = timelineTransferGapGridUnits.gridUnitsAsDp()),
     ) {
-        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
-        TimelineLine()
-        Spacer(Modifier.width(timelineContentPaddingGridUnits.gridUnitsAsDp()))
+        Spacer(
+            Modifier.width(
+                (timelineTimeColumnGridUnits + timelineRailColumnGridUnits + timelineContentPaddingGridUnits).gridUnitsAsDp(),
+            ),
+        )
         Column(
             Modifier
                 .weight(1f)
@@ -1116,10 +1144,9 @@ private fun TimelineRail(
     connectAbove: Boolean,
     connectBelow: Boolean,
     markerInverted: Boolean,
-    markerTopPadding: Float,
 ) {
-    val markerLineCentre = markerTopPadding + 24f
-    val markerLineCentreDp = markerLineCentre.designVerticalPxToDp()
+    val markerLineCentreDp = timelineStationMarkerCentrePx.designVerticalPxToDp()
+    val markerSize = 0.34f.gridUnitsAsDp()
     val lineWidth = 2f.designVerticalPxToDp()
     val lineColour = LightThemeTokens.colors.content
     Box(
@@ -1150,36 +1177,12 @@ private fun TimelineRail(
     ) {
         Box(
             Modifier
-                .align(Alignment.Center)
-                .padding(top = markerTopPadding.designVerticalPxToDp())
-                .width(timelineRailColumnGridUnits.gridUnitsAsDp())
-                .height(28f.designVerticalPxToDp()),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                Modifier
-                    .width(0.34f.gridUnitsAsDp())
-                    .height(0.34f.gridUnitsAsDp())
-                    .background(if (markerInverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content)
-                    .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
-            )
-        }
-    }
-}
-
-@Composable
-private fun TimelineLine() {
-    Box(
-        Modifier
-            .width(timelineRailColumnGridUnits.gridUnitsAsDp())
-            .fillMaxHeight(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Spacer(
-            Modifier
-                .width(2f.designVerticalPxToDp())
-                .fillMaxHeight()
-                .background(LightThemeTokens.colors.content),
+                .align(Alignment.TopCenter)
+                .offset(y = markerLineCentreDp - markerSize / 2)
+                .width(markerSize)
+                .height(markerSize)
+                .background(if (markerInverted) LightThemeTokens.colors.background else LightThemeTokens.colors.content)
+                .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content),
         )
     }
 }
@@ -2112,7 +2115,7 @@ private const val timelineStationTopPaddingGridUnits = 0.45f
 private const val timelineStationBottomPaddingGridUnits = 0.55f
 private const val timelineRideTopPaddingGridUnits = 0.45f
 private const val timelineRideBottomPaddingGridUnits = 0.8f
-private const val timelineStationHeightPx = 37.5f
+private const val timelineStationMarkerCentrePx = 18.75f
 private const val timelineTransferGapGridUnits = 0.9f
 private const val timelinePastContentAlpha = 0.46f
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
