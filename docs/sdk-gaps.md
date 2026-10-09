@@ -1,33 +1,17 @@
-# Current Light SDK gaps
+# SDK and release limits
 
-This file records limitations observed at the pinned SDK revision `ddf33e40d04306b86dfbbe7e9dc64fb19e9fb525`. Treinwijzer does not patch the SDK or use restricted Android APIs to work around them.
+Reviewed on 9 October 2026 against Light SDK `0.2.0`, official upstream `311aa2d81e03e7df2603fa3943d05e4aad51d29b`. The 417 SDK/plugin/builder/signer/trust/example/lint source files match upstream exactly.
 
-## GPS and nearest stations
+Location permission and leased updates, sealed-context storage, hosted building/signing, Tool Manager and public Tool Library submission are supported. Nearby-station coordinates are used only on the phone. Release metadata targets `com.lightos`; an explicit debug option selects the emulator without changing release metadata. Dependencies use public repositories.
 
-The current tool API does not expose location access. The nearest-stations screen therefore shows an explicit unsupported state. It does not infer location from network data, stale preferences or a hard-coded city.
+## Background alerts
 
-## Visible notifications while closed
+The SDK exposes `LightServerPushCredentials(pushEndpoint, pushRegistrationDate)`, but does not expose the encryption public key and authentication secret. Its push registration callback contains a TODO for saving the public-key set. Standard [UnifiedPush delivery requires encryption](https://unifiedpush.org/developers/spec/android/). Neither a callback nor a URL establishes a usable encrypted production transport.
 
-UnifiedPush can wake the tool callback and signal that authoritative journey data should be refreshed. The SDK does not currently offer a supported way for a community tool to publish a visible LightOS system alert while the tool is closed. Treinwijzer shows alerts immediately while open and stores up to ten unacknowledged alert events in the Worker for display on the next launch.
+This release disables push registration in `ToolEntryPoint`. Journey changes and alerts appear in the open tool. The backend keeps up to 10 unread alerts for 24 hours; reopening retrieves them, and dismissal acknowledges them. No remote background notification or plaintext journey push is sent. The UI states this limit in both languages.
 
-## Durable push-callback storage
+## Backend and validation
 
-The push callback has no SDK-provided durable storage surface. It therefore decodes a small versioned envelope into a replaying in-memory signal. The Worker event inbox is the durable fallback for user-visible alerts; the client always fetches `/journeys/active` for authoritative journey state.
+Scoped public bootstrap, per-install ownership, persistent quotas, actual outgoing NS request budgets, bounded active tracking and the alert inbox are implemented in the isolated backend release branch. Existing private-watch/APNs checks pass. Deployment needs explicit approval because the new Durable Object class is a lifecycle migration with constrained rollback.
 
-## Time-sensitive background execution
-
-LightOS controls background execution. Treinwijzer cannot guarantee exact callback or closed-tool refresh timing. The Worker continues polling once a minute and coalesces provider-specific delivery using the same journey-change logic as watchOS.
-
-## Production push and distribution configuration
-
-The public SDK does not yet document a complete production community-tool distribution and push configuration flow. This simulator milestone uses `serverPackage = "com.thelightphone.sdk.emulator"`. A hardware/distribution build must switch it to `com.lightos`, replace temporary tunnel configuration with an approved production endpoint and follow Light's published signing/distribution process when available.
-
-## Revisit checklist
-
-- Supported tool location API.
-- Supported visible closed-tool notifications.
-- Durable callback storage or background task API.
-- Time-sensitive background execution guarantees.
-- Production UnifiedPush endpoint and VAPID documentation.
-- Builder-time secrets and per-environment configuration.
-- Community-tool signing and distribution instructions.
+Automated checks include the real local Cloudflare runtime and a clean extracted arm64 release. They do not establish hosted signing acceptance or UI correctness. The user has an emulator available; human checks, screenshots and source review remain necessary. A minified development-signed emulator build is provided to exercise shrinking. See [release preparation](releasing.md).

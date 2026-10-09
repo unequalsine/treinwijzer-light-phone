@@ -89,7 +89,7 @@ sealed interface ScreenMode {
     data class StationIndex(val purpose: StationPurpose) : ScreenMode
     data class StationResults(val purpose: StationPurpose, val query: String, val stations: List<Station>) : ScreenMode
     data class StationRecents(val purpose: StationPurpose, val stations: List<Station>) : ScreenMode
-    data class StationNearestUnavailable(val purpose: StationPurpose) : ScreenMode
+    data class StationNearest(val purpose: StationPurpose) : ScreenMode
     data class Departures(val station: Station, val departures: List<Departure>) : ScreenMode
     data class DepartureDetails(val station: Station, val departure: Departure) : ScreenMode
     data class Disruptions(val station: Station, val disruptions: List<Disruption>) : ScreenMode
@@ -103,7 +103,7 @@ sealed interface ScreenMode {
     data class TripDetails(val trip: TripOption, val request: PlannerRequest?) : ScreenMode
     data object Favourites : ScreenMode
     data object Settings : ScreenMode
-    data object NearestUnavailable : ScreenMode
+    data object Privacy : ScreenMode
     data class Active(val journey: TripOption) : ScreenMode
 }
 
@@ -149,25 +149,11 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     private val _uiState = MutableStateFlow(TreinwijzerUiState())
     val uiState: StateFlow<TreinwijzerUiState> = _uiState.asStateFlow()
     private var foregroundRefresh: Job? = null
-    private val handledUpdates = LinkedHashSet<String>()
     private val screenHistory = ScreenHistory()
 
     init {
         viewModelScope.launch(Dispatchers.IO) { initialise() }
-        viewModelScope.launch(Dispatchers.IO) {
-            PushBridge.endpoint.collectLatest { endpoint ->
-                if (!endpoint.isNullOrBlank()) registerPushIfNeeded(endpoint)
-            }
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            PushBridge.signals.collect { envelope ->
-                if (handledUpdates.add(envelope.updateId)) {
-                    while (handledUpdates.size > 20) handledUpdates.remove(handledUpdates.first())
-                    envelope.alert?.let { showAndAcknowledge(it) }
-                    refreshActiveJourney(showBusy = false)
-                }
-            }
-        }
+
     }
 
     override fun onScreenShow(screen: SimpleLightScreen<Unit>) {
@@ -188,8 +174,14 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
     }
 
     private suspend fun initialise() {
-        val stored = preferences.load()
+        val stored = preferences.load().forBackend(BuildConfig.WORKER_BASE_URL)
+        preferences.save(stored)
+        if (!stored.privacyAccepted) {
+            _uiState.update { it.copy(mode = ScreenMode.Privacy, persisted = stored) }
+            return
+        }
         val registered = ensureIdentity(stored)
+        preferences.save(registered)
         val state = registered.copy(
             stations = if (registered.stations.isEmpty()) runCatching { api.stations(registered.identity()) }.getOrDefault(emptyList()) else registered.stations,
         )
@@ -199,18 +191,27 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
                 mode = ScreenMode.Home,
                 persisted = state,
                 plannerOrigin = state.recentStations.firstOrNull(),
+                errorModal = _uiState.value.errorModal,
             )
         }
-        PushBridge.endpoint.value?.let { registerPushIfNeeded(it) }
         fetchEventInbox()
         if (state.activeJourney != null) startForegroundRefresh()
     }
 
     private suspend fun ensureIdentity(state: PersistedState): PersistedState {
-        if (!state.installSecret.isNullOrBlank()) return state
+        if (!state.installSecret.isNullOrBlank() && BuildConfig.WORKER_ACCESS_TOKEN.isNotBlank()) return state
         return try {
-            val response = api.registerInstall(state.installId)
-            state.copy(installId = response.installId, installSecret = response.installSecret)
+            val response = try {
+                api.registerInstall(state.installId, state.installSecret)
+            } catch (error: ApiException) {
+                if (error.statusCode != 401 || state.installSecret.isNullOrBlank()) throw error
+                api.registerInstall(java.util.UUID.randomUUID().toString())
+            }
+            state.copy(
+                installId = response.installId,
+                installSecret = response.installSecret,
+                activeJourney = state.activeJourney.takeIf { response.installId == state.installId },
+            )
         } catch (error: Throwable) {
             showError(error)
             state
@@ -232,7 +233,16 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         ScreenMode.StationRecents(purpose, _uiState.value.persisted.recentStations),
     )
 
-    fun openStationNearest(purpose: StationPurpose) = updateMode(ScreenMode.StationNearestUnavailable(purpose))
+    fun openStationNearest(purpose: StationPurpose) = updateMode(ScreenMode.StationNearest(purpose))
+
+    fun selectNearestStations(mode: ScreenMode.StationNearest, latitude: Double, longitude: Double) {
+        if (_uiState.value.mode != mode) return
+        replaceMode(ScreenMode.StationResults(
+            mode.purpose,
+            Copy(_uiState.value.persisted.language).nearest,
+            nearestStations(_uiState.value.persisted.stations, latitude, longitude),
+        ))
+    }
 
     fun selectStationLetter(letter: String, purpose: StationPurpose) {
         val stations = filterStationsByLetter(_uiState.value.persisted.stations, letter)
@@ -427,7 +437,15 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     fun openFavourites() = updateMode(ScreenMode.Favourites)
     fun openSettings() = updateMode(ScreenMode.Settings)
-    fun openNearest() = updateMode(ScreenMode.NearestUnavailable)
+    fun openPrivacy() = updateMode(ScreenMode.Privacy)
+    fun acceptPrivacy() = viewModelScope.launch(Dispatchers.IO) {
+        if (_uiState.value.busy || _uiState.value.persisted.privacyAccepted) return@launch
+        setBusy(true)
+        updatePersisted { it.copy(privacyAccepted = true) }
+        replaceMode(ScreenMode.Loading)
+        initialise()
+    }
+    fun openNearest() = openStationNearest(StationPurpose.INFO)
     fun openActive() = _uiState.value.persisted.activeJourney?.let { updateMode(ScreenMode.Active(it)) }
     fun home() {
         screenHistory.clear()
@@ -486,6 +504,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
             while (isActive) {
                 delay(60_000)
                 refreshActiveJourney(showBusy = false)
+                fetchEventInbox()
             }
         }
     }
@@ -495,7 +514,15 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         val current = state.activeJourney ?: return
         if (showBusy) setBusy(true)
         try {
-            val authoritative = api.activeJourney(state.identity()) ?: runCatching {
+            val stored = api.activeJourney(state.identity())
+            if (stored == null && Instant.parse(current.arrival).plusSeconds(1800).isBefore(Instant.now())) {
+                updatePersisted { it.copy(activeJourney = null) }
+                if (_uiState.value.mode is ScreenMode.Active) home()
+                foregroundRefresh?.cancel()
+                foregroundRefresh = null
+                return
+            }
+            val authoritative = stored ?: runCatching {
                 val request = plannerRequestFor(current, state.stations)
                 matchJourney(current, api.trips(state.identity(), request, state.language))
             }.getOrNull()
@@ -517,31 +544,30 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         }
     }
 
-    private suspend fun registerPushIfNeeded(endpoint: String) {
-        val state = _uiState.value.persisted
-        if (state.installSecret.isNullOrBlank() || state.registeredPushEndpoint == endpoint) return
-        runCatching { api.registerPush(state.identity(), endpoint) }
-            .onSuccess { updatePersisted { it.copy(registeredPushEndpoint = endpoint) } }
-    }
-
     private suspend fun fetchEventInbox() {
         val state = _uiState.value.persisted
-        if (state.installSecret.isNullOrBlank()) return
+        if (!state.privacyAccepted || state.installSecret.isNullOrBlank() || _uiState.value.alertModal != null) return
         runCatching { api.events(state.identity()) }
             .getOrDefault(emptyList())
             .firstOrNull()
-            ?.let { showAndAcknowledge(it) }
+            ?.let { showAlert(it) }
     }
 
-    private suspend fun showAndAcknowledge(alert: LightAlert) {
-        withContext(Dispatchers.Main) { _uiState.update { it.copy(alertModal = alert) } }
-        val state = _uiState.value.persisted
-        runCatching { api.acknowledgeEvents(state.identity(), listOf(alert.id)) }
+    private suspend fun showAlert(alert: LightAlert) {
+        withContext(Dispatchers.Main) { _uiState.update { if (it.alertModal == null) it.copy(alertModal = alert) else it } }
     }
 
     fun dismissAlert() {
-        _uiState.update { it.copy(alertModal = null) }
-        viewModelScope.launch(Dispatchers.IO) { fetchEventInbox() }
+        val alert = _uiState.value.alertModal ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val state = _uiState.value.persisted
+            runCatching { api.acknowledgeEvents(state.identity(), listOf(alert.id)) }
+                .onSuccess {
+                    _uiState.update { it.copy(alertModal = null) }
+                    fetchEventInbox()
+                }
+                .onFailure { if (it !is CancellationException) showError(it) }
+        }
     }
 
     fun dismissError() = _uiState.update { it.copy(errorModal = null) }
@@ -550,6 +576,10 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
         viewModelScope.launch(Dispatchers.IO) {
             setBusy(true)
             try {
+                if (_uiState.value.persisted.installSecret.isNullOrBlank() && _uiState.value.persisted.privacyAccepted) {
+                    val registered = ensureIdentity(_uiState.value.persisted)
+                    updatePersisted { registered }
+                }
                 block()
             } catch (error: Throwable) {
                 if (error !is CancellationException) showError(error)
@@ -581,7 +611,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     private fun navigateBack(): Boolean {
         val current = _uiState.value.mode
-        if (current == ScreenMode.Home || current == ScreenMode.Loading) return false
+        if (current == ScreenMode.Home || current == ScreenMode.Loading || (current == ScreenMode.Privacy && !_uiState.value.persisted.privacyAccepted)) return false
         replaceMode(screenHistory.previous() ?: ScreenMode.Home)
         return true
     }
@@ -598,7 +628,7 @@ class TreinwijzerViewModel(dataStore: DataStore<Preferences>) : LightViewModel<U
 
     private suspend fun showError(error: Throwable) = withContext(Dispatchers.Main) {
         _uiState.update { state ->
-            state.copy(errorModal = if (BuildConfig.WORKER_ACCESS_TOKEN.isBlank()) Copy(state.persisted.language).notConfigured else Copy(state.persisted.language).networkError)
+            state.copy(errorModal = Copy(state.persisted.language).networkError)
         }
     }
 

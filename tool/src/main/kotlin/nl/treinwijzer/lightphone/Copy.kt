@@ -4,6 +4,12 @@ class Copy(private val language: Language) {
     private fun value(en: String, nl: String) = if (language == Language.ENGLISH) en else nl
 
     val app = "Treinwijzer"
+    val privacy get() = value("Privacy", "Privacy")
+    val continueLabel get() = value("Continue", "Doorgaan")
+    val privacyNotice get() = value(
+        "Your station searches and journey requests go through Treinwijzer on Cloudflare to NS. Tracking stores your chosen journey until 30 minutes after arrival; unread alerts are kept for 24 hours. An anonymous installation key expires after 90 days without use. Favourites and nearby-station coordinates stay on your phone. We do not use advertising or analytics.",
+        "Je stationszoekopdrachten en reisaanvragen gaan via Treinwijzer op Cloudflare naar NS. Bij het volgen wordt je gekozen reis tot 30 minuten na aankomst bewaard; ongelezen meldingen blijven 24 uur bewaard. Een anonieme installatiesleutel verloopt na 90 dagen zonder gebruik. Favorieten en coördinaten voor stations in de buurt blijven op je telefoon. We gebruiken geen advertenties of analytics.",
+    )
     val loading get() = value("Loading…", "Laden…")
     val networkError get() = value("Could not reach Treinwijzer. Check your connection and configuration.", "Treinwijzer is niet bereikbaar. Controleer je verbinding en configuratie.")
     val searchStation get() = value("Search station", "Station zoeken")
@@ -27,9 +33,11 @@ class Copy(private val language: Language) {
     val nearest get() = value("Nearest stations", "Stations in de buurt")
     val nearestShort get() = value("Nearest", "Dichtstbij")
     val nearestUnavailable get() = value(
-        "Nearest stations are not supported by the current Light SDK because tools have no location access.",
-        "Stations in de buurt worden niet ondersteund door de huidige Light SDK, omdat tools geen locatietoegang hebben.",
+        "Could not get a recent location. Try again outdoors, or search for a station.",
+        "Geen recente locatie gevonden. Probeer het buiten opnieuw of zoek een station.",
     )
+    val locationPermission get() = value("Allow location access to find nearby stations. Your location stays on your phone.", "Sta locatietoegang toe om stations in de buurt te vinden. Je locatie blijft op je telefoon.")
+    val allowLocation get() = value("Allow location", "Locatie toestaan")
     val activeJourney get() = value("Active journey", "Actieve reis")
     val liveJourney get() = value("Live journey", "Live reis")
     val origin get() = value("From", "Van")
@@ -102,9 +110,9 @@ class Copy(private val language: Language) {
     val price get() = value("Price", "Prijs")
     val configured get() = value("Connected", "Verbonden")
     val connection get() = value("Connection", "Verbinding")
-    val notConfigured get() = value("Worker token is not configured.", "Worker-token is niet ingesteld.")
+    val notConfigured get() = value("Could not connect to Treinwijzer.", "Geen verbinding met Treinwijzer.")
     val notificationsLimited get() = value(
-        "Background tracking works through Light push. The current SDK cannot show a system alert while the tool is closed; missed alerts appear here on next launch.",
-        "Volgen op de achtergrond werkt via Light-push. De huidige SDK kan geen systeemmelding tonen als de tool gesloten is; gemiste meldingen verschijnen bij de volgende start.",
+        "Journey updates and alerts appear while this tool is open. Unread alerts are kept for 24 hours and shown when you reopen it. There are no background notifications.",
+        "Reisupdates en meldingen verschijnen als deze tool open is. Ongelezen meldingen blijven 24 uur bewaard en verschijnen bij de volgende start. Er zijn geen achtergrondmeldingen.",
     )
 }

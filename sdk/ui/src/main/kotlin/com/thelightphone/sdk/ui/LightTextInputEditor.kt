@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -35,6 +36,7 @@ import com.thelightphone.lp3Keyboard.ui.viewmodel.EnQwertyLp3KeyboardViewModel
 import com.thelightphone.lp3Keyboard.ui.viewmodel.Lp3KeyboardViewModel
 import com.thelightphone.lp3Keyboard.ui.viewmodel.Lp3RepeatableKeyboardCallback
 import com.thelightphone.lp3Keyboard.ui.viewmodel.defaultEmojis
+import com.thelightphone.sdk.ContextLightVibrator
 import com.thelightphone.sdk.ui.keyboard.LightEmbeddedLp3Keyboard
 import com.thelightphone.sdk.ui.keyboard.TextInputKeyboardCallback
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,15 +55,18 @@ fun LightTextInputEditor(
     modifier: Modifier = Modifier,
     submitLabel: String = "SUBMIT",
     submitIcon: LightIconConfiguration? = null,
+    leftBottomBarItem: LightBottomBarItem? = null,
+    rightBottomBarItem: LightBottomBarItem? = null,
     showBackButton: Boolean = true,
     singleLine: Boolean = false,
+    initialCaps: Boolean = false,
     editorKey: Any = remember { Any() },
 ) {
     val currentOnSubmit by rememberUpdatedState(onSubmit)
     val hapticsEnabled = LocalHapticsEnabled.current
     val context = LocalContext.current
     val currentOnHaptic by rememberUpdatedState {
-        if (hapticsEnabled) LightHapticFeedback.click(context)
+        if (hapticsEnabled) ContextLightVibrator(context).click()
     }
     val keyboardCallback = remember(state, singleLine) {
         TextInputKeyboardCallback(
@@ -74,7 +79,7 @@ fun LightTextInputEditor(
 
     val keyboardViewModel: Lp3KeyboardViewModel<*> = viewModel<EnQwertyLp3KeyboardViewModel<*>>(
         key = "LightTextInputEditor-$editorKey",
-        factory = factory(keyboardCallback, keyboardOptionsFlow),
+        factory = factory(keyboardCallback, keyboardOptionsFlow, initialCaps),
     )
 
     LightTextInputEditor(
@@ -86,6 +91,8 @@ fun LightTextInputEditor(
         modifier,
         submitLabel,
         submitIcon,
+        leftBottomBarItem,
+        rightBottomBarItem,
         showBackButton,
         singleLine,
     )
@@ -108,6 +115,8 @@ fun LightTextInputEditor(
     modifier: Modifier = Modifier,
     submitLabel: String = "SUBMIT",
     submitIcon: LightIconConfiguration? = null,
+    leftBottomBarItem: LightBottomBarItem? = null,
+    rightBottomBarItem: LightBottomBarItem? = null,
     showBackButton: Boolean = true,
     singleLine: Boolean = false,
 ) {
@@ -192,11 +201,11 @@ fun LightTextInputEditor(
                 }
             }
 
-            LightEmbeddedLp3Keyboard(viewModel = viewModel)
-
-            LightBottomBar(
-                items = listOf(
-                    when (submitIcon) {
+            LightEmbeddedLp3Keyboard(
+                viewModel = viewModel,
+                additionalBottomHeight = 5f.gridUnitsAsDp(),
+                bottomBar = {
+                    val submitItem: LightBottomBarItem = when (submitIcon) {
                         null -> LightBarButton.Text(
                             text = submitLabel,
                             onClick = { onSubmit(state.text) },
@@ -206,8 +215,15 @@ fun LightTextInputEditor(
                             onClick = { onSubmit(state.text) },
                             contentDescription = submitLabel,
                         )
-                    },
-                ),
+                    }
+                    LightBottomBar(
+                        items = if (leftBottomBarItem == null && rightBottomBarItem == null) {
+                            listOf(submitItem)
+                        } else {
+                            listOf(leftBottomBarItem, submitItem, rightBottomBarItem)
+                        },
+                    )
+                }
             )
         }
     }
@@ -215,7 +231,8 @@ fun LightTextInputEditor(
 
 private fun factory(
     callback: Lp3RepeatableKeyboardCallback,
-    keyboardOptionsFlow: StateFlow<KeyboardOptions>
+    keyboardOptionsFlow: StateFlow<KeyboardOptions>,
+    initialCaps: Boolean,
 ): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -227,7 +244,9 @@ private fun factory(
                     val showCloseButton = !it.isRootLayout
                     LayoutOptions(showCloseButton)
                 },
-            ) as T
+            ).apply {
+                if (initialCaps) setCapsMode(true)
+            } as T
         }
 
     }
@@ -261,7 +280,7 @@ private fun PreviewLightTextInputEditorDark() {
 fun defaultKeyboardOptions() = KeyboardOptions(
     defaultEmojis,
     displayReturn = true,
-    displayVoice = true,
+    displayVoice = false, // dictation not available in LP3 keyboard as of 0.0.19
     enableKeyAnimation = true,
     swipeEnabled = false
 )

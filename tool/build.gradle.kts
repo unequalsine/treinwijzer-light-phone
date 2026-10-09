@@ -1,4 +1,19 @@
 import java.util.Properties
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLParameters
+import javax.net.ssl.X509TrustManager
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,11 +30,17 @@ android {
     val localProps = Properties().apply {
         rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
     }
-    val workerBaseUrl = localProps.getProperty(
+    val productionMode = providers.gradleProperty("treinwijzer.production").orNull == "true"
+    val workerBaseUrl = if (productionMode) "https://treinwijzer.unequalsine.workers.dev" else localProps.getProperty(
         "treinwijzer.workerBaseUrl",
         "https://treinwijzer-light-dev.unequalsine.workers.dev",
     )
-    val workerAccessToken = localProps.getProperty("treinwijzer.workerAccessToken", "")
+    val workerAccessToken = if (productionMode) "" else localProps.getProperty("treinwijzer.workerAccessToken", "")
+    fun configString(value: String): String = "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r") + "\""
 
     signingConfigs {
         create("lightsdkDev") {
@@ -36,9 +57,8 @@ android {
         minSdk = rootProject.ext["minSdk"] as Int
         targetSdk = rootProject.ext["targetSdk"] as Int
 
-        manifestPlaceholders["sdkVersion"] = property("sdkVersion") as String
-        buildConfigField("String", "WORKER_BASE_URL", "\"$workerBaseUrl\"")
-        buildConfigField("String", "WORKER_ACCESS_TOKEN", "\"$workerAccessToken\"")
+        buildConfigField("String", "WORKER_BASE_URL", configString("https://treinwijzer.unequalsine.workers.dev"))
+        buildConfigField("String", "WORKER_ACCESS_TOKEN", configString(""))
     }
 
     buildFeatures {
@@ -47,9 +67,25 @@ android {
 
     buildTypes {
         debug {
+            if (providers.gradleProperty("treinwijzer.minifiedEmulator").orNull == "true") {
+                require(providers.gradleProperty("treinwijzer.emulator").orNull == "true") {
+                    "Minified emulator testing requires -Ptreinwijzer.emulator=true"
+                }
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            }
             signingConfig = signingConfigs.getByName("lightsdkDev")
+            buildConfigField("String", "WORKER_BASE_URL", configString(workerBaseUrl))
+            buildConfigField("String", "WORKER_ACCESS_TOKEN", configString(workerAccessToken))
+            if (providers.gradleProperty("treinwijzer.emulator").orNull == "true") {
+                manifestPlaceholders["treinwijzerServerPackage"] = "com.thelightphone.sdk.emulator"
+            } else {
+                manifestPlaceholders["treinwijzerServerPackage"] = "com.lightos"
+            }
         }
         release {
+            manifestPlaceholders["treinwijzerServerPackage"] = "com.lightos"
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
@@ -68,6 +104,16 @@ android {
     }
 }
 
+androidComponents {
+    finalizeDsl {
+        val manifest = layout.buildDirectory.file("generated/light-sdk/AndroidManifest.xml").get().asFile
+        manifest.writeText(manifest.readText().replace(
+            "android:value=\"com.lightos\"",
+            "android:value=\"\${treinwijzerServerPackage}\"",
+        ))
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(rootProject.ext["jvmTarget"] as String))
@@ -78,4 +124,192 @@ dependencies {
     implementation(project(":sdk:client"))
     testImplementation(libs.kotlin.test)
     ksp(libs.androidx.room.compiler)
+}
+
+/**
+ * Uploads the debug APK to a device/emulator running the Light SDK server, via the
+ * "developer" tool manager branch (see DeveloperModeDataTree.kt in sdk/server), and waits for
+ * the device to report that the tool was (re)installed.
+ *
+ * Usage:
+ *   ./gradlew :tool:uploadTool -Pdevice.ip=192.168.1.42 -Pdevice.token=<hex signing key> \
+ *       [-Pdevice.port=54449] [-Pdevice.timeoutSeconds=60]
+ *
+ * device.token must be one of the device's HMAC signing keys, hex-encoded - either its
+ * primaryKey (shown in the Tool Manager URL, e.g. "...#abc123") or a key minted/persisted under
+ * the "Authentication" branch. Every request is signed with it (see authedRequest/sign below);
+ * it is not sent as a bearer token.
+ */
+abstract class UploadToolTask : DefaultTask() {
+
+    @get:Internal
+    abstract val apkDir: DirectoryProperty
+
+    @get:Internal
+    abstract val packageName: Property<String>
+
+    @get:Internal
+    abstract val ipAddress: Property<String>
+
+    @get:Internal
+    abstract val port: Property<Int>
+
+    @get:Internal
+    abstract val token: Property<String>
+
+    @get:Internal
+    abstract val timeoutSeconds: Property<Long>
+
+    @get:Internal
+    abstract val pollIntervalSeconds: Property<Long>
+
+    // The server presents a cert for its own *.my.local-ip.co hostname (see
+    // ToolManagerServiceAndroid), which will never match when we connect straight to a LAN
+    // IP/port. Trusting everything here is fine: this is a local dev-upload tool talking
+    // to a device the caller already picked by IP, not a general-purpose HTTP client.
+    private fun insecureHttpClient(): HttpClient {
+        val trustAll = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        }
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(trustAll), SecureRandom())
+        }
+        val sslParameters = SSLParameters().apply { endpointIdentificationAlgorithm = "" }
+        return HttpClient.newBuilder()
+            .sslContext(sslContext)
+            .sslParameters(sslParameters)
+            .build()
+    }
+
+    private fun localIpHost(ip: String) = "${ip.replace(".", "-")}.my.local-ip.co"
+
+    private fun baseUrl() = "https://${localIpHost(ipAddress.get())}:${port.get()}"
+
+    // The server has no idea what an "Authorization: Bearer" header is - every /api/ request
+    // must instead be signed with HMAC-SHA256 over "method\npath\ntimestampMillis", keyed by the
+    // hex-decoded device.token (see RequestSigning.kt/ToolManagerAuth.kt in the toolmanager lib).
+    // device.token must therefore be a hex string - i.e. one of the keys the device itself
+    // generated (its primaryKey, shown in the Tool Manager URL) or minted (persisted, encrypted,
+    // under the "Authentication" branch) - not an arbitrary human-chosen password.
+    private fun String.hexToBytes(): ByteArray {
+        require(length % 2 == 0) { "device.token must be a hex-encoded key (odd length: $length)" }
+        return ByteArray(length / 2) { i -> ((this[2 * i].digitToInt(16) shl 4) or this[2 * i + 1].digitToInt(16)).toByte() }
+    }
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+
+    private fun sign(method: String, path: String, timestampMillis: Long): String {
+        val canonical = "$method\n$path\n$timestampMillis"
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(token.get().hexToBytes(), "HmacSHA256"))
+        return mac.doFinal(canonical.toByteArray(Charsets.UTF_8)).toHex()
+    }
+
+    private fun authedRequest(uri: URI, method: String): HttpRequest.Builder {
+        val timestampMillis = System.currentTimeMillis()
+        return HttpRequest.newBuilder(uri)
+            .header("X-Tm-Timestamp", timestampMillis.toString())
+            .header("X-Tm-Signature", sign(method, uri.rawPath, timestampMillis))
+    }
+
+    // Server serializes the tools list as {"tools":[{"packageName":"...","lastUpdateMillis":n},...]}
+    // in declaration order (ApkInboxDataTree.ToolMeta).
+    private fun extractLastUpdateMillis(json: String, packageName: String): Long? {
+        val pattern = Regex(
+            "\\{\"packageName\":\"${Regex.escape(packageName)}\",\"lastUpdateMillis\":(\\d+)\\}"
+        )
+        return pattern.find(json)?.groupValues?.get(1)?.toLong()
+    }
+
+    @TaskAction
+    fun upload() {
+        val missing = listOfNotNull(
+            "device.ip".takeUnless { ipAddress.isPresent },
+            "device.token".takeUnless { token.isPresent },
+        )
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Missing required propert${if (missing.size == 1) "y" else "ies"}: " +
+                    missing.joinToString(", ") { "-P$it=..." }
+            )
+        }
+
+        val apk = apkDir.get().asFileTree.files.filter { it.extension == "apk" }.let { apks ->
+            apks.singleOrNull()
+                ?: throw GradleException("Expected exactly one .apk in ${apkDir.get()}, found: $apks")
+        }
+        val pkg = packageName.get()
+        val client = insecureHttpClient()
+        val toolMetaUri = URI("${baseUrl()}/api/data/developer/toolMeta")
+
+        fun fetchLastUpdateMillis(): Long? {
+            val response = client.send(authedRequest(toolMetaUri, "GET").GET().build(), HttpResponse.BodyHandlers.ofString())
+            check(response.statusCode() == 200) {
+                "Failed to query toolMeta: HTTP ${response.statusCode()} - ${response.body()}"
+            }
+            return extractLastUpdateMillis(response.body(), pkg)
+        }
+
+        logger.lifecycle("Checking current install state of $pkg on ${ipAddress.get()}:${port.get()}...")
+        val before = fetchLastUpdateMillis()
+        logger.lifecycle(
+            if (before == null) "$pkg is not currently installed on the device."
+            else "$pkg is currently installed, last updated at $before."
+        )
+
+        val uploadFileName = "$pkg.apk"
+        logger.lifecycle("Uploading ${apk.name} (${apk.length()} bytes) as $uploadFileName...")
+        val uploadResponse = client.send(
+            authedRequest(URI("${baseUrl()}/api/upload/developer/apkInbox/$uploadFileName"), "POST")
+                .POST(HttpRequest.BodyPublishers.ofFile(apk.toPath()))
+                .build(),
+            HttpResponse.BodyHandlers.ofString()
+        )
+        check(uploadResponse.statusCode() == 200) {
+            "Upload failed: HTTP ${uploadResponse.statusCode()} - ${uploadResponse.body()}"
+        }
+
+        val notifyResponse = client.send(
+            authedRequest(URI("${baseUrl()}/api/notify/developer/apkInbox/$uploadFileName"), "POST")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build(),
+            HttpResponse.BodyHandlers.ofString()
+        )
+        check(notifyResponse.statusCode() == 200) {
+            "Notify failed: HTTP ${notifyResponse.statusCode()} - ${notifyResponse.body()}"
+        }
+
+        logger.lifecycle("Uploaded. Waiting for the device to install/update $pkg...")
+        val deadlineMs = System.currentTimeMillis() + timeoutSeconds.get() * 1000
+        val pollIntervalMs = pollIntervalSeconds.get() * 1000
+        while (true) {
+            Thread.sleep(pollIntervalMs)
+            val after = fetchLastUpdateMillis()
+            if (after != null && after != before) {
+                logger.lifecycle("$pkg installed/updated (lastUpdateMillis=$after).")
+                return
+            }
+            if (System.currentTimeMillis() >= deadlineMs) {
+                throw GradleException(
+                    "Timed out after ${timeoutSeconds.get()}s waiting for $pkg to install/update on the device."
+                )
+            }
+        }
+    }
+}
+
+tasks.register<UploadToolTask>("uploadTool") {
+    group = "light sdk"
+    description = "Uploads the debug APK to a Light SDK server and waits for it to install/update."
+    dependsOn("assembleDebug")
+
+    apkDir.set(layout.buildDirectory.dir("outputs/apk/debug"))
+    packageName.set(requireNotNull(android.defaultConfig.applicationId) { "applicationId is not set" })
+    ipAddress.set(providers.gradleProperty("device.ip").orElse("127.0.0.1"))
+    port.set(providers.gradleProperty("device.port").map { it.toInt() }.orElse(54449))
+    token.set(providers.gradleProperty("device.token"))
+    timeoutSeconds.set(providers.gradleProperty("device.timeoutSeconds").map { it.toLong() }.orElse(60L))
+    pollIntervalSeconds.set(2L)
 }

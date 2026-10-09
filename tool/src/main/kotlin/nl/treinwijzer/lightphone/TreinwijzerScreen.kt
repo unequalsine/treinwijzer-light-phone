@@ -24,7 +24,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -44,6 +49,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.thelightphone.sdk.InitialScreen
 import com.thelightphone.sdk.LightScreen
 import com.thelightphone.sdk.SealedLightActivity
+import com.thelightphone.sdk.callRemoteServiceMethod
+import com.thelightphone.sdk.checkPermission
+import com.thelightphone.sdk.rememberPermissionRequestLauncher
+import com.thelightphone.sdk.shared.LightServiceMethod
+import com.thelightphone.sdk.shared.getOrNull
 import com.thelightphone.sdk.ui.LightBarButton
 import com.thelightphone.sdk.ui.LightFullscreenModal
 import com.thelightphone.sdk.ui.LightIcon
@@ -73,6 +83,11 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
     LightScreen<Unit, TreinwijzerViewModel>(sealedActivity) {
     override val viewModelClass: Class<TreinwijzerViewModel> = TreinwijzerViewModel::class.java
     override fun createViewModel() = TreinwijzerViewModel(lightContext.dataStore)
+    private var resumeCount by mutableIntStateOf(0)
+
+    override fun willShow() {
+        resumeCount++
+    }
 
     @Composable
     override fun Content() {
@@ -98,11 +113,7 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     )
                     is ScreenMode.StationResults -> StationResultsContent(mode, copy, viewModel)
                     is ScreenMode.StationRecents -> StationRecentsContent(mode, copy, viewModel)
-                    is ScreenMode.StationNearestUnavailable -> MessageScreen(
-                        copy.nearest,
-                        copy.nearestUnavailable,
-                        viewModel::back,
-                    )
+                    is ScreenMode.StationNearest -> NearestStationsContent(mode, copy, viewModel, resumeCount)
                     is ScreenMode.Departures -> DeparturesContent(mode, state, copy, viewModel)
                     is ScreenMode.DepartureDetails -> DepartureDetailsContent(mode, copy, viewModel)
                     is ScreenMode.Disruptions -> DisruptionsContent(mode, copy, viewModel)
@@ -119,7 +130,10 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                     is ScreenMode.TripDetails -> TripDetailsContent(mode, state, copy, viewModel)
                     ScreenMode.Favourites -> FavouritesContent(state, copy, viewModel)
                     ScreenMode.Settings -> SettingsContent(state, copy, viewModel)
-                    ScreenMode.NearestUnavailable -> MessageScreen(copy.nearest, copy.nearestUnavailable, viewModel::back)
+                    ScreenMode.Privacy -> ScreenFrame(copy.privacy, if (state.persisted.privacyAccepted) viewModel::back else null) {
+                        Body(copy.privacyNotice)
+                        if (!state.persisted.privacyAccepted) ListAction(copy.continueLabel) { viewModel.acceptPrivacy() }
+                    }
                     is ScreenMode.Active -> ActiveJourneyContent(mode.journey, copy, viewModel)
                 }
 
@@ -132,6 +146,54 @@ class TreinwijzerScreen(sealedActivity: SealedLightActivity) :
                 }
                 state.errorModal?.let { LightFullscreenModal(it, viewModel::dismissError) }
                 state.alertModal?.let { LightFullscreenModal("${it.title}\n\n${it.body}", viewModel::dismissAlert) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NearestStationsContent(mode: ScreenMode.StationNearest, copy: Copy, vm: TreinwijzerViewModel, resumeCount: Int) {
+    val permission = "android.permission.ACCESS_FINE_LOCATION"
+    val permissionLauncher = rememberPermissionRequestLauncher(permission)
+    var granted by remember(mode) { mutableStateOf(false) }
+    var searching by remember(mode) { mutableStateOf(true) }
+    var attempts by remember(mode) { mutableIntStateOf(0) }
+
+    LaunchedEffect(mode, resumeCount, attempts) {
+        searching = true
+        granted = checkPermission(permission).getOrNull()?.permissionResult == LightServiceMethod.GetPermission.Result.Granted
+        if (!granted) {
+            searching = false
+            return@LaunchedEffect
+        }
+        try {
+            callRemoteServiceMethod(LightServiceMethod.RequestLocationUpdates, Unit)
+            repeat(12) {
+                val location = callRemoteServiceMethod(LightServiceMethod.GetCurrentLocation, Unit).getOrNull()
+                if (usableLocation(location?.latitude, location?.longitude, location?.accuracyMeters, location?.timestampMs, System.currentTimeMillis())) {
+                    vm.selectNearestStations(mode, location!!.latitude!!, location.longitude!!)
+                    return@LaunchedEffect
+                }
+                delay(2_000)
+            }
+            searching = false
+        } finally {
+            withContext(NonCancellable) {
+                callRemoteServiceMethod(LightServiceMethod.ReleaseLocationUpdates, Unit)
+            }
+        }
+    }
+
+    ScreenFrame(copy.nearest, vm::back) {
+        when {
+            searching -> Body(copy.loading)
+            !granted -> {
+                Body(copy.locationPermission)
+                ListAction(copy.allowLocation) { permissionLauncher?.launch() }
+            }
+            else -> {
+                Body(copy.nearestUnavailable)
+                ListAction(copy.retry) { attempts++ }
             }
         }
     }
@@ -1349,11 +1411,12 @@ private fun SettingsContent(state: TreinwijzerUiState, copy: Copy, vm: Treinwijz
         SettingToggle(copy.alerts, state.persisted.notificationPreferences.alertsEnabled, copy, vm::toggleAlerts)
         SettingToggle(copy.guidance, state.persisted.notificationPreferences.guidanceEnabled, copy, vm::toggleGuidance)
         Notice(copy.notificationsLimited)
+        ListAction(copy.privacy) { vm.openPrivacy() }
         Section(copy.connection)
         StatusPanel(
             copy.connection,
-            if (BuildConfig.WORKER_ACCESS_TOKEN.isBlank()) copy.notConfigured else copy.configured,
-            connected = BuildConfig.WORKER_ACCESS_TOKEN.isNotBlank(),
+            if (state.persisted.installSecret.isNullOrBlank()) copy.notConfigured else copy.configured,
+            connected = !state.persisted.installSecret.isNullOrBlank(),
         )
     }
 }

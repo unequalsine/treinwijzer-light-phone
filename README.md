@@ -1,105 +1,56 @@
 # Treinwijzer for Light Phone III
 
-Treinwijzer is a Light-native train planner and live journey companion for Dutch NS travel. This public repository is a fork of the official Light SDK. Only the `tool/` module contains Treinwijzer product code; SDK code remains pinned and unmodified so upstream updates can be reviewed cleanly.
+Treinwijzer is a free, Light-native planner and live journey companion for Dutch NS train travel: station search, departures, disruptions, planning, fares, transfer details, recovery journeys, favourites, Dutch/English copy and active-journey tracking.
 
-- Tool id: `nl.treinwijzer.lightphone`
-- Starting Light SDK revision: `ddf33e40d04306b86dfbbe7e9dc64fb19e9fb525`
-- Upstream: `https://github.com/lightphone/light-sdk`
-- Worker source of truth: `https://github.com/unequalsine/treinwijzer`
+- Tool ID: `nl.treinwijzer.lightphone`
+- Tool version: `1.0.1` (version code `2`)
+- Light SDK: `0.2.0`, with official upstream changes through `311aa2d81e03e7df2603fa3943d05e4aad51d29b`
+- SDK upstream: [lightphone/light-sdk](https://github.com/lightphone/light-sdk)
+- Backend source: [unequalsine/treinwijzer](https://github.com/unequalsine/treinwijzer)
 
-Implemented capabilities include station search, departures and departure details, disruptions, advanced journey planning, prices, transfer details, recovery journeys, favourites, recents, preferences, English and Dutch copy, persisted active journeys, foreground refresh, UnifiedPush-triggered refresh and a recoverable alert inbox. Everything in the Light tool is free. There is no paywall, StoreKit integration or Apple-only widget surface.
+Product code lives in `tool/`. SDK, plugin, builder, signer and example changes are imported from upstream without Treinwijzer patches.
 
-The current SDK does not expose tool location access or closed-tool visible notifications. Treinwijzer represents those limits honestly; see [SDK gaps](docs/sdk-gaps.md).
+**UNVALIDATED - requires emulator testing.** Automated checks passed, including a clean extracted release and the backend’s local Cloudflare runtime. Production deployment needs explicit approval; emulator validation and human screenshots are still required before submission. See [release preparation](docs/releasing.md).
 
-## Local configuration
+## Development
 
-Create ignored `local.properties` entries:
+Use JDK 17, Android SDK platform 36 and the included Gradle wrapper. SDK dependencies now resolve from public repositories, including JitPack; GitHub Packages credentials are no longer required.
+
+Create an ignored `local.properties`:
 
 ```properties
 sdk.dir=/path/to/Android/sdk
-gpr.user=your_github_user
-gpr.key=your_github_token_with_read_packages
-treinwijzer.workerBaseUrl=https://your-light-dev-worker.example
+treinwijzer.workerBaseUrl=https://your-development-worker.example
 treinwijzer.workerAccessToken=your-development-app-token
 ```
 
-Never commit an NS key, Worker token, endpoint, tunnel URL or GitHub token. The Worker access token is compiled into local development APKs and must be treated as a development credential.
-
-## Build and test
-
-The pinned SDK currently needs a Java 17 toolchain:
+These Worker values affect **debug builds only**. Never commit credentials. Release builds select `https://treinwijzer.unequalsine.workers.dev` and contain no shared Worker token. The scoped public backend changes are prepared and tested; deployment is pending approval.
 
 ```sh
-./gradlew :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug
+./gradlew -DlightSdk.toolOnly=true :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug
+./gradlew check
 ```
 
-Simulator setup and reusable commands are documented in [the Treinwijzer simulator guide](docs/simulator.md). Hardware/distribution builds must change `serverPackage` in `tool/lighttool.toml` from `com.thelightphone.sdk.emulator` to `com.lightos`.
+Normal builds connect to `com.lightos`. For the LightOS emulator, pass `-Ptreinwijzer.emulator=true`; only the debug variant changes. [Simulator setup](docs/simulator.md) remains available, and `scripts/install-tool.sh` selects the emulator and production backend automatically. Add `--minified` to exercise resource/code shrinking on the emulator; no physical phone is needed for this check.
 
-## Official Light SDK documentation
+The official `:tool:uploadTool` task is also available for installation through Tool Manager; follow [Light's local installation instructions](docs/sideloading/README.md). Keep device authentication keys private.
 
-The upstream SDK documentation is retained below.
+Nearest stations request the SDK location permission and use a recent device fix. Distances are calculated locally; coordinates are not sent to the Worker. Favourites/preferences stay on the phone. Queries, installation credentials and tracked journeys are sent to the configured Worker, which obtains rail data from NS. This release does not register push endpoints or promise background notifications. Active journey changes are stored in an authenticated inbox and appear while open or on reopening. The first-run privacy screen explains external processing before any Treinwijzer backend request.
 
-# light-sdk
-or: a tool for building Tools
+## Release and submission
 
-## tl;dr
-This repository contains the scaffolding for building simple tools for the Light Phone III. Included are a library ([:sdk:client](./sdk/client)) and placeholder application ([:tool](./tool)) that depends on it. To create a tool that is fully compatible with LightOS, you must write your application code within the `tool` module, using the primitives provided by the sdk client library.
+Light builds and signs tools from public Git refs through the [developer dashboard](https://dashboard.thelightphone.com/). Its builder extracts only `tool/build.gradle.kts`, `tool/lighttool.toml` and allowlisted `tool/src/main/**` files into Light's own SDK workspace. Ignored files and local signing keys cannot supply release configuration.
 
-You can and should use current Android best practices: Kotlin for all source code, Compose for UI, Coroutines for async programming, and MVVM architecture. **Although this is appears to be a fairly standard Android dev environment, you will quickly find out that we are (gently but broadly) restricting which Android APIs and third-party libraries can be used. This is in an effort to provide a secure and distinctly _light_ experience for our users. These restrictions are _not_ set in stone and should ease up over time. If there is a stable, open-source library that you'd like us to allow, please let us know! More on this later.**
-
-## IMPORTANT!! July 1, 2026 Update
-If you're reading this, welcome! You're early! (in a cool way)
-This repo is a work-in-progress and will remain so for a while. Things are going to change _fast_ in the coming weeks. If you're going to start building right away, be sure to `git pull` frequently.
-Before you do, though, please be aware that **while we feel good about letting everybody start to explore and build, we are still working on the infrastructure to properly deploy your new tools.**
-The currently builds of LightOS in the wild are not yet ready to "play nice" with the tools built here. If you're someone who's already comfortable working with ADB to sideload APKs on your
-Light Phone III, you can totally do that with whatever you do here! But we're shooting to make these tools feel as seamless as the ones already available in LightOS, and that's going to take a bit more work. 
-We're hoping to have an update on that front later this month. In the meantime, the best way to start working is to use an Android emulator running our new [LightOS Emulator](sdk/emulator). The instructions for getting that up and running
-are [right here](docs/system_app).
-
-## Quickstart
-### Grabbing a token
-We're currently hosting our library builds with GitHub Packages so each artifact can live beside its source. The tradeoff is that you'll need to add a GitHub token with package read access to your local build environment. **We are considering migrating to Maven Central to avoid this requirement when everything goes public.**
-For now, you can either add environment variables with your username and token:
-```
-GITHUB_ACTOR=your_username
-GITHUB_TOKEN=your_token
-```
-or you can add them to your `local.properties` file:
-```
-gpr.user=your_username
-gpr.key=your_token
+```sh
+./gradlew -DlightSdk.toolOnly=true -DlightSdk.unsigned=true -DlightSdk.abiFilters=arm64-v8a :tool:assembleRelease
 ```
 
-### Running your Tool
-**You can test your tool on any Android device or emulator**, but certain functionality (receiving push notifications, requesting special permissions) can only be tested with:
-A) Real Light Phone hardware running LightOS
-B) An Android emulator (on your computer) set up to run our LightOS emulator app as a _system app_ ([see advanced instructions](docs/system_app))
+This checks compilation/packaging; it does not create a Light-signed or approved tool. Follow [release preparation](docs/releasing.md), [Tool Library guidelines](TOOL_GUIDELINES.md) and [Light's submission instructions](https://github.com/lightphone/light-sdk#submitting-your-tool). External submission text and screenshots must be supplied by a human.
 
-You can quickly [create an emulator](https://developer.android.com/studio/run/managing-avds) that generally feels like an LPIII by using the following settings:
-* 1080 X 1240, 3.92" display
-* Android API 34
-* NO Google Play Services installed
+## SDK references
 
-### Start Building
-1. Fork and/or clone this repository into your local dev environment.
-2. Install Android Studio and open this project within it. (IntelliJ IDEA should also work)
-
-3. Edit the code in `HomeScreen` and `HomeScreenViewModel` to get started. `Homescreen` surfaces a `@Composable` method named `Content`. This is the UI that is shown when the tool first boots. You'll notice this UI sources data from it's `viewModel` field, which is an instance of `HomeScreenViewModel`. Edit that class with your screen's logic and expose the data to the UI using either Compose `State` or Coroutine `Flow`s. If you want to create a new screen, create a new Screen/ViewModel pair: your screen should extend from `LightScreen` and your VM from `LightScreenViewModel`. Your screen implementation will need:
-   1. A direct reference to your ViewModel's class type
-   2. A factory method for creating a new instance of your ViewModel.
-
-Look at `HomeScreen` as an example for how this is done. To navigate to your new screen, use the `navigateTo` function built into `LightScreen` - just pass it a lambda to create an instance of your new screen. Note that the `LightScreen` constructor takes in a `SealedLightActivity`. The lambda is provided an instance of this as a default parameter.
-
-Since LightOS does not use Android system navigation, we provide a back button for you. As long as you use `navigateTo` to move between screens, our back button should work great. If need be, you can override the `onBackPressed` method in your `LightViewModel`.
-
-### Sharing Your Tool
-**As of July 1, 2026, there's no "easy" way to share your tool with a Light Phone III user. We're working hard on that. This is how we believe it's going to look.**
-
-Given our relatively limited resources and desire to keep our users safe, we're requiring that all community tools be open source (including our own!). We will be building and signing these tools directly from a publicly available git commit, and we'll be archiving the source at build time. You're free to build and share privately, but LightOS won't let you install tools that are not signed by us without acknowledging privacy and performance risks. We won't block users from performing these "dangerous" sideloads, but we're not going to encourage it either. In the near future, you'll be able to queue up a build of your tool on our servers, and if it follows our guidelines and compiles cleanly, we will hand you back a signed, shareable APK.
-
-Once we release a version of LightOS that supports community tools, users will have an option to choose what kind of tools they want to be able to run on their device:
-- **Light-approved tools**: These include tools that are either built internally by the Light team, or built by the community and officially tested/signed-off by the Light team. We don't know _exactly_ what that sign-off process is going to look like, but as a heads-up: we're going to be looking pretty hard at whether a submitted tool matches the Light ethos both functionally and aesthetically. We've included a UX/UI library to make this as easy as possible! From a technical standpoint, these approved tools are both signed by us _and_ added to an "allow-list" within LightOS. Phones with this option selected will only install and display tools that meet both criteria.
-- **SDK-built tools**: This is a slightly more permissive choice. Phones with this option selected will install and launch any tool that was built and signed by Light. These don't require any manual approval by us (though we can block them in extreme cases). If a user wants to be able to install a tool that was shared locally or somewhere outside of Light's dashboard, but they still want to be confident that it will run well and integrate nicely with LightOS, they might choose this option!
-- **Any tools**: A user will have the option to make any APK launchable from LightOS, but they will own the responsibility of getting them un/installed. When a user selects this option, we will be warning them that they are potentially opening their device up to security risks, and in doing so will limit our ability to support them if something goes wrong.
-
-## [Complete Documentation](./docs)
+- [SDK documentation](docs/README.md)
+- [Tool metadata and capabilities](docs/tool_metadata/README.md)
+- [Tool signing](docs/tool_signing/README.md)
+- [Local installation with Tool Manager](docs/sideloading/README.md)
+- [Remaining SDK and backend gaps](docs/sdk-gaps.md)

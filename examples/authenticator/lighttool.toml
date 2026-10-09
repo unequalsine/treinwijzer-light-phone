@@ -1,9 +1,9 @@
 [tool]
 id = "com.thelightphone.authenticator"
 label = "Authenticator"
-versionCode = 2
-versionName = "2.0.0"
+versionCode = 3
+versionName = "3.0.0"
 permissions = ["android.permission.CAMERA"]
-# change if you run this on the emulator!
+# for the LightOS emulator, use the line below and build with -DlightSdk.allowAltServerPackage=true
 # serverPackage = "com.thelightphone.sdk.emulator"
 serverPackage = "com.lightos"

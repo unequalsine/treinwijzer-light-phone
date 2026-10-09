@@ -447,10 +447,11 @@ class ContractAndLogicTest {
     }
 
     @Test
-    fun bothLocalisationsCoverSdkLimitations() {
-        assertTrue(Copy(Language.ENGLISH).nearestUnavailable.contains("not supported"))
-        assertTrue(Copy(Language.DUTCH).nearestUnavailable.contains("niet ondersteund"))
-        assertTrue(Copy(Language.ENGLISH).notificationsLimited.contains("closed"))
+    fun bothLocalisationsDescribeForegroundAlertsAndRetention() {
+        assertTrue(Copy(Language.ENGLISH).notificationsLimited.contains("no background notifications"))
+        assertTrue(Copy(Language.DUTCH).notificationsLimited.contains("geen achtergrondmeldingen"))
+        assertTrue(Copy(Language.ENGLISH).notificationsLimited.contains("24 hours"))
+        assertTrue(Copy(Language.DUTCH).notificationsLimited.contains("24 uur"))
     }
 
     private fun multiTransferTrip(): TripOption {

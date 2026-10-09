@@ -41,9 +41,9 @@ class TreinwijzerApi(
         }
     }
 
-    suspend fun registerInstall(installId: String): InstallRegistrationResponse = checked(
-        client.post("$baseUrl/install/register") {
-            commonHeaders(installId, null)
+    suspend fun registerInstall(installId: String, installSecret: String? = null): InstallRegistrationResponse = checked(
+        client.post("$baseUrl/install/register${if (appToken.isBlank()) "/light" else ""}") {
+            commonHeaders(installId, installSecret)
             contentType(ContentType.Application.Json)
             setBody(InstallRegistrationRequest(installId))
         },

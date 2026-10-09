@@ -1,9 +1,9 @@
 [tool]
 id = "nl.treinwijzer.lightphone"
 label = "Treinwijzer"
-versionCode = 1
-versionName = "1.0.0"
-permissions = ["android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"]
-# change if you run this on an LP3!
-# serverPackage = "com.lightos"
-serverPackage = "com.thelightphone.sdk.emulator"
+versionCode = 2
+versionName = "1.0.1"
+permissions = ["android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE", "android.permission.ACCESS_FINE_LOCATION"]
+capabilities = []
+orientation = "portrait"
+serverPackage = "com.lightos"
