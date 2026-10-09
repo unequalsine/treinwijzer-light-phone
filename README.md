@@ -10,7 +10,7 @@ Treinwijzer is a free, Light-native planner and live journey companion for Dutch
 
 Product code lives in `tool/`. SDK, plugin, builder, signer and example changes are imported from upstream without Treinwijzer patches.
 
-**UNVALIDATED - requires emulator testing.** Automated checks passed, including a clean extracted release and the backend’s local Cloudflare runtime. The separate Light service is deployed; its NS API secret setup, emulator validation and human screenshots are still required before submission. See [release preparation](docs/releasing.md).
+**UNVALIDATED - requires emulator testing.** Automated checks passed, including a clean extracted release and the backend’s local Cloudflare runtime. The separate Light service is active and live checks passed, including scheduled polling. The rebuilt candidate is running in the emulator; human validation and screenshots are still required before submission. See [release preparation](docs/releasing.md).
 
 ## Development
 
@@ -24,7 +24,7 @@ treinwijzer.workerBaseUrl=https://your-development-worker.example
 treinwijzer.workerAccessToken=your-development-app-token
 ```
 
-These Worker values affect **debug builds only**. Never commit credentials. Release builds select `https://treinwijzer-light.unequalsine.workers.dev` and contain no shared Worker token. The separate Light service reuses the watch backend code with its own storage and credentials. The separate service is deployed and awaits its NS API secret; the watch service is unchanged.
+These Worker values affect **debug builds only**. Never commit credentials. Release builds select `https://treinwijzer-light.unequalsine.workers.dev` and contain no shared Worker token. The separate Light service reuses the watch backend code with its own storage and credentials. The separate service is active and live registration/planning/tracking checks pass; the watch service is unchanged.
 
 ```sh
 ./gradlew -DlightSdk.toolOnly=true :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug

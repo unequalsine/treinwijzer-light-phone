@@ -1,6 +1,6 @@
 # Treinwijzer LightOS release preparation
 
-Reviewed: 9 October 2026. **UNVALIDATED - requires emulator testing.** Release candidate `1.0.1` (code `2`) is built and the backend integration is implemented/tested. The user-approved separate Light service is deployed; NS secret setup and human validation remain pending. No dashboard submission has been made.
+Reviewed: 9 October 2026. **UNVALIDATED - requires emulator testing.** Release candidate `1.0.1` (code `2`) is built and the backend integration is implemented/tested. The user-approved separate Light service is deployed; NS secret setup and live service checks are complete; human validation remains pending. No dashboard submission has been made.
 
 ## Build and backend inputs
 
@@ -37,7 +37,7 @@ The proposed Light deployment creates separate KV namespaces and `LightState`, r
 
 The user confirmed the existing US$5/month paid account. A second Worker adds no fixed subscription fee. Recent read-only usage indicates ample request/KV allowance, so additional charges are not expected at this scale, but account-wide overages remain possible. The backend runbook records the evidence and limitation; no remote resources or plan changes have been made.
 
-After explicit deployment approval: use only `worker/wrangler.light.toml`, configure its NS secret, record new namespace IDs and verify public bootstrap/stations/trips/start-read-stop tracking and revocation without logging credentials. The approved Light-only deployment is complete (see the deployment result below); registration returns 503 until its NS secret is configured. The emulator installed earlier still points to the watch URL; reinstall the rebuilt candidate after activation.
+After explicit deployment approval: use only `worker/wrangler.light.toml`, configure its NS secret, record new namespace IDs and verify public bootstrap/stations/trips/start-read-stop tracking and revocation without logging credentials. The approved Light-only deployment is complete (see the deployment result below); registration returns 503 until its NS secret is configured. The rebuilt minified candidate has now been installed and launched with the Light URL; see the live activation result below.
 
 ## Human emulator checks
 
@@ -61,3 +61,11 @@ A successful hosted build produces a Light-signed APK pending approval. Build/si
 The user approved deployment of the separate service. Source `5309609e6384cb5d929f23256d4f3abe25134ed5` is live as version `e02542c2-4a29-435b-8f97-6b3c149b5456` at `https://treinwijzer-light.unequalsine.workers.dev`. Its newly created KV and SQLite Durable Object namespaces are separate from the watch service; IDs are recorded in the backend configuration. The watch deployment remained exactly unchanged at `5de48759-2e35-46d3-a143-a2a40a5f6c48`.
 
 The endpoint returns the expected 503 because `NS_API_KEY` has not been configured. The user must add that secret in Cloudflare Workers & Pages → `treinwijzer-light` → Settings → Variables and Secrets, then save/deploy. Functional production smoke checks and reloading the rebuilt emulator candidate follow that setup. No watch/APNs secrets were copied, and no billing plan changed. The deployment itself succeeded; this is not yet a functional release validation.
+
+## Live activation and emulator reload — 9 October 2026
+
+The user configured the NS secret. Initial live checks exposed empty-body test-installation revocation returning 400. The scoped correction (`664f3fd3026941eb043f09f4999921b9f7be4841`) passed typecheck, 122 backend tests and local runtime integration, and is live as `6b93dfae-7751-4ef5-9e91-3a3da08ecb71`. The NS secret and all three Light storage IDs were preserved; no watch/APNs bindings were added.
+
+Live registration/renewal, credential rejection, stations/search/departures/disruptions, trip planning, tracking start/read/stop, a real scheduled NS poll, empty owned inbox/ack and revocation all pass. The successful test installation was removed. The first attempt left an inactive installation after its cleanup failed; its credentials were not retained, and it expires under the normal 90-day policy. Backend details and limits are recorded in the runbook.
+
+The rebuilt minified `1.0.1` (code `2`) APK is installed and running in the emulator. The foreground component is `nl.treinwijzer.lightphone/com.thelightphone.sdk.LightActivity`, and LightOS reports SDK `0.2.0`. No screenshots, emulator display access or human UI confirmation occurred. The APK hashes are unchanged from the isolated rebuild. Human checks above, source publishing and Light signing/submission remain outstanding.

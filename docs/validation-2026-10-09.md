@@ -1,6 +1,6 @@
 # Release candidate checks — 9 October 2026
 
-Status: **UNVALIDATED - requires emulator testing**. The original shared-service deployment was blocked. The subsequently approved separate Light service is now deployed; NS secret setup and functional production/emulator checks remain pending. No emulator display, screenshot, physical phone, hosted signing or dashboard submission was accessed.
+Status: **UNVALIDATED - requires emulator testing**. The original shared-service deployment was blocked. The separate Light service is active, functional production checks pass and the rebuilt candidate is installed/running. Human emulator interaction and visual confirmation remain pending. No emulator display, screenshot, physical phone, hosted signing or dashboard submission was accessed.
 
 ## Initial checks before deployment isolation
 
@@ -43,3 +43,11 @@ The tool release URL now targets `https://treinwijzer-light.unequalsine.workers.
 On 9 October the user approved the separate Light service. Backend source `5309609e6384cb5d929f23256d4f3abe25134ed5` deployed successfully as `e02542c2-4a29-435b-8f97-6b3c149b5456`. Metadata confirms separate KV namespaces `a143e5b171324263aa1b19b0e5880768` and `e7eeb2c83e1b4483ae41fb6383622b9c`, Light Durable Object namespace `45797447d4b3464cbea0628203017cca`, cron and 50 ms CPU limit. No watch/APNs/NS secrets are bound. Before/after watch deployment records match exactly; watch version `5de48759-2e35-46d3-a143-a2a40a5f6c48` remains at 100%.
 
 A credential-free bootstrap check with the usual HTTP client returns 503 `Light service is not configured`, as designed before NS secret setup. Python's default client received Cloudflare 403/1010; no protections were changed. No installation, NS lookup, tracked journey, inbox or revocation was exercised in production. Functional validation must follow secure user configuration of `NS_API_KEY`. The rebuilt APKs remain saved locally; the emulator still has the earlier URL until the rebuilt candidate is installed.
+
+## Live production checks and candidate loaded
+
+The owner configured the NS secret. Version `fea66b5b-f289-4792-a156-c7be753aa28d` initially passed live rail-data/planning/tracking checks but revealed empty streamed DELETE bodies being rejected during installation cleanup. Correction commit `664f3fd3026941eb043f09f4999921b9f7be4841` passed typecheck, 122 tests and local runtime integration; version `6b93dfae-7751-4ef5-9e91-3a3da08ecb71` retains the NS secret and the same separate KV/DO namespaces and 50 ms CPU limit.
+
+Repeated live checks passed public registration/renewal, missing/wrong credential rejection, watch-route rejection, 397 NS stations, station search, departures, disruptions, two trip options, tracking start/read/stop, a real cron NS refresh, empty inbox/ack and test-installation revocation. The cron check made only its owned test journey due and retained its expiry. No alert was fabricated, so populated production inbox delivery is not claimed. The completed test installation was revoked and further access returned 401. An inactive first-attempt installation remains under the normal 90-day expiry after its failed cleanup lost in-memory credentials; its journey was already stopped.
+
+The exact saved minified candidate (`24c66bff2a8e0416bedb058293efae1a19f34a01cad9a33119bfa1fdcbbf9ee7`) installed successfully on the discovered emulator. Package metadata confirms version 1.0.1/code 2, its process is running and its LightActivity is foreground. The LightOS HTTP version endpoint reports 0.2.0. App data was preserved. This is installation/process evidence; no display, screenshot, physical phone, human interaction, hosted signing or dashboard submission evidence is implied.
