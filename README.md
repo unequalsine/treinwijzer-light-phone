@@ -23,9 +23,9 @@ Journey information updates while the tool is open. Unread journey alerts are re
 
 ## Privacy
 
-Favourites and preferences stay on your phone. Nearby stations are ranked locally, and your location is not sent to the backend.
+Favourites and preferences stay on your phone. Nearby stations are ranked locally, and your location is not sent to the online service.
 
-Searches, journey requests and active tracking use the Treinwijzer service on Cloudflare, which obtains rail data from NS. An installation identity protects your journeys and alert inbox. The tool explains this before its first connection. No ads, analytics or account signup.
+Station searches and journey tracking use an online service hosted on Cloudflare, with rail data from NS. The tool explains this before its first connection. No ads, analytics or account signup.
 
 ## Development
 
@@ -35,7 +35,7 @@ Use JDK 17, Android SDK platform 36 and the included Gradle wrapper. Add your An
 sdk.dir=/path/to/Android/sdk
 ```
 
-Build and check the tool using the public Treinwijzer backend:
+Build and check the tool:
 
 ```sh
 ./gradlew -DlightSdk.toolOnly=true -Ptreinwijzer.production=true :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug
@@ -49,7 +49,7 @@ For the emulator, follow the [setup guide](docs/simulator.md), then run:
 
 Use `./scripts/install-tool.sh --minified` to test with code and resource shrinking. For a physical phone, follow [Light’s Tool Manager instructions](docs/sideloading/README.md).
 
-Treinwijzer lives in [`tool/`](tool/). The SDK and build tools come from [lightphone/light-sdk](https://github.com/lightphone/light-sdk). See the [SDK documentation](docs/README.md) and [notification limitations](docs/sdk-gaps.md). Backend code is maintained in [Treinwijzer](https://github.com/unequalsine/treinwijzer); the Light and watch apps use separate services and storage.
+Treinwijzer lives in [`tool/`](tool/). The SDK and build tools come from [lightphone/light-sdk](https://github.com/lightphone/light-sdk). See the [SDK documentation](docs/README.md) and [notification details](docs/notifications.md).
 
 ## Contributing
 
