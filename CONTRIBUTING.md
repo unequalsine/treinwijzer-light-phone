@@ -1,45 +1,14 @@
-# Contributing to Treinwijzer
-
-Thanks for helping make train travel simpler on Light Phone III. Report Treinwijzer bugs and discuss proposed tool changes in [this repository’s issues](https://github.com/unequalsine/treinwijzer-light-phone/issues). Include reproduction steps, the version or commit you tested, and human-captured screenshots for layout issues.
-
-Treinwijzer product changes belong in `tool/`; leave the imported SDK modules unchanged. Run `./gradlew check` and validate changed behaviour in the emulator. Respect the API/dependency restrictions, code of conduct and human communication policy below.
-
-The following guide is retained from the official Light SDK. Its Light-team contribution approval process and upstream issue links apply to SDK changes; Treinwijzer tool reports belong in this repository.
-
----
-
 # Contributing
 
-**The [code of conduct](CODE_OF_CONDUCT.md) applies to all contributions, please go check that out first.**
+Bug reports, translations and improvements are welcome. For a bug report, include the tool version, what happened and steps to reproduce it. Screenshots help with layout issues.
 
-### Limitations
-While the software in this library is fully open source, it is depended upon by the Light Phone's existing products. Above all else, we need to maintain compatibility with those products so we can continue to deliver safe, timely, and functional updates to our customers. We are excited to pull more closed code from those products into our open repositories, but it will take time. Ultimately, this means we are currently not interested in certain types of contributions from the community:
-* Public API changes
-* Additional/updated third-party dependencies (we'll do our best to stay up-to-date)
-* Meaningful architectural changes
+Keep Treinwijzer changes in `tool/`. The SDK modules follow [Light’s upstream repository](https://github.com/lightphone/light-sdk); SDK changes should be discussed there.
 
-### Welcome Contributions
+Before sending a change:
 
-We expect contributions to come in the form of GitHub [issues](https://github.com/lightphone/light-sdk/issues) and [pull requests](https://github.com/lightphone/light-sdk/pulls). Not every issue requires a pull request, but we will close any pull requests that are not associated with an existing issue. If you are interested in submitting code changes for your issue, please state that clearly. Someone from the Light team will explicitly indicate on an issue that we would welcome a relevant PR. **We reserve the right to politely refuse any proposed work. If having your work merged is important to you, please wait until we give a green light on your issue!**
+- Explain what it changes and why.
+- Run `./gradlew check`.
+- Test the affected screens and behaviour in the LightOS emulator, including Dutch and English text.
+- Keep credentials, local configuration and build outputs out of Git.
 
-We expect _all_ modules in this repository to compile, and _all_ tests to pass for each PR. We will have an automated check that runs on GitHub, but to save time/resources, **please** check that this is true before opening your PR. For this repo, you can run `./gradlew check` in the root directory.
-
-Types of issues we are excited to receive:
-* **Bug Reports** (something does not work as it is intended to)
-  * Please include the commit on which you are experiencing the issue, a description, and detailed reproduction steps.
-* **Feature Requests** ("it would be helpful if this software could also do `X`")
-  * This includes requests to add open source third-party libraries or Android APIs to the build [plugin's](plugin) allow-list!
-  * New features should be relevant to a meaningful percentage of Light Phone users / consumers of this software. We reserve the right to make the final call on whether or not this is true for your issue.
-* **Security Issues** (something in this software might allow a bad actor to degrade a Light Phone user's experience or violate their privacy)
-* **_Material_ Performance Improvements** (something in this software is actively degrading a Light Phone user's experience, or is egregiously consuming resources)
-
-### AI/LLM Policy
-(Adapted from [Astral's](https://github.com/astral-sh/.github/blob/main/AI_POLICY.md))
-
-We like talking to _people_!
-
-- We expect all communication in this repository to come from a human. That includes issue/PR descriptions, comments, and replies. If you are a non-native English speaker using an LLM to translate for you, we would be grateful if you included your original content alongside the translation.
-- We expect you to be able to explain any proposed code changes in your own words. 
-- We find that code comments produced by LLMs tend to be overly verbose and/or specific to your dev session. Please delete them, or if you think they're genuinely useful, make sure they are brief and in your voice.
-- **You are responsible for any code or other communication that comes from your account**.
-- **We (the humans on the Light dev team) are responsible for any code that gets merged.**
+Respect the SDK’s API and dependency restrictions and our [code of conduct](CODE_OF_CONDUCT.md).

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-/Users/jeroen/Library/Android/sdk}"
+ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 ADB="$ANDROID_SDK_PATH/platform-tools/adb"
 
 "$ADB" wait-for-device

@@ -2,7 +2,7 @@
 set -eu
 
 PROJECT_PATH=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-/Users/jeroen/Library/Android/sdk}"
+ANDROID_SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 JAVA_17_PATH="${JAVA_17_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}"
 ADB="$ANDROID_SDK_PATH/platform-tools/adb"
 GRADLE_JAVA="$JAVA_17_PATH/bin/java"

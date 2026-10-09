@@ -5,6 +5,7 @@ build/
 !**/src/test/**/build/
 local.properties
 local/
+/AGENTS.md
 
 ### IntelliJ IDEA ###
 .idea/
@@ -44,7 +45,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-### Clanker ###
+### Local configuration ###
 .claude/
 
 ### Python (builder/) ###

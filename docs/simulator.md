@@ -1,27 +1,28 @@
-# Treinwijzer LightOS simulator
+# Running Treinwijzer in the emulator
 
-The local simulator is named `LightPhoneIII_API34` and uses the API 34 AOSP `default` ARM64 image at 1080 × 1240 and 420 dpi. It intentionally has no Play Store image.
+## Setup
 
-## Prerequisites
+Use JDK 17, Android SDK platform 36 and an API 34 AOSP `default` ARM64 system image without Google Play services. Create an AVD named `LightPhoneIII_API34` with a 1080 × 1240 screen and 420 dpi. Follow the [LightOS system-app setup](system_app/README.md) for the test platform signing key.
 
-- Android Studio and Android SDK platform tools.
-- API 34 AOSP `default` ARM64 system image.
-- Java 17 and Android SDK platform 36 for the updated SDK's Gradle toolchain.
-- `cloudflared` for temporary simulator UnifiedPush delivery.
-- The documented AOSP test `sdk/emulator/keys/platform.jks`.
+The scripts use `ANDROID_SDK_ROOT` (or `ANDROID_HOME`) for the Android SDK. On macOS they default to `$HOME/Library/Android/sdk`. Set `JAVA_17_HOME` to your JDK 17 directory; the default is the Homebrew JDK 17 path on macOS.
 
-## Commands
+```sh
+./scripts/start-emulator.sh
+./scripts/install-lightos.sh
+./scripts/install-tool.sh
+```
 
-Use the scripts in `scripts/`:
+The first command opens the emulator. The second installs LightOS as its system launcher. The third builds and installs Treinwijzer using the public backend. Run the commands with only the intended emulator connected.
 
-- `start-emulator.sh` boots the AVD with a writable system partition.
-- `install-lightos.sh` builds and installs LightOS as a privileged system app, sets it as launcher and disables Android transition animations.
-- `install-tool.sh` assembles and installs Treinwijzer with emulator binding and production backend access. Use `--minified` for the shrinking check. Production deployment must be approved and verified first. Normal builds and all release builds target `com.lightos`; the emulator option affects debug only.
-- `verify-emulator.sh` verifies the test-key image, LightOS system uid, launcher, SDK endpoint and discovered Treinwijzer package.
-- `start-push-tunnel.sh` forwards emulator port 8090 and starts an HTTPS tunnel. Set the printed host as the emulator's `pushDomain`, then rebuild/reinstall LightOS.
+```sh
+./scripts/install-tool.sh --minified
+./scripts/verify-emulator.sh
+```
 
-The emulator's `pushDomain` is distribution-time state owned by the LightOS emulator. The current release does not register or send to push endpoints. Keep temporary tunnel domains out of production; the old development transport is not evidence of encrypted public delivery.
+The minified build tests code and resource shrinking. The verification script checks the LightOS installation, tool package and SDK version.
 
-Normal debug Worker configuration comes from ignored `local.properties`. The installer adds `-Ptreinwijzer.production=true`, which ignores those private debug values and selects public production access. Release always selects production without a shared token. This release disables push registration and relies on foreground updates plus the durable alert inbox. See [release preparation](releasing.md).
+Normal builds target `com.lightos`. The installer uses `-Ptreinwijzer.emulator=true` for debug builds only and `-Ptreinwijzer.production=true` for public backend access. To use a development backend instead, omit the production flag and set `treinwijzer.workerBaseUrl` and `treinwijzer.workerAccessToken` in ignored `local.properties`. Release builds always use the public Light service without a shared app token.
 
-On a physical phone, use the supported [Tool Manager installation flow](sideloading/README.md). This project has not been validated visually by AI; a human must perform the emulator and device checks.
+Journey updates work while the tool is open, with unread alerts retrieved on reopening. A push tunnel is not required. The optional `start-push-tunnel.sh` helper is for SDK transport experiments; it is not used by Treinwijzer.
+
+For a physical phone, use [Tool Manager](sideloading/README.md).
