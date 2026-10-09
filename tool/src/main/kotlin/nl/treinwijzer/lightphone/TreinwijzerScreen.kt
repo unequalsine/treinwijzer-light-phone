@@ -2155,11 +2155,10 @@ private fun LetterButton(letter: String, modifier: Modifier = Modifier, onClick:
     Box(
         modifier = modifier
             .padding(vertical = 0.18f.gridUnitsAsDp())
-            .height(1.55f.gridUnitsAsDp())
+            .height(2.1f.gridUnitsAsDp())
             .background(LightThemeTokens.colors.content)
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
-            .lightClickable(onClick = onClick)
-            .padding(vertical = 0.2f.gridUnitsAsDp()),
+            .lightClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         LightText(

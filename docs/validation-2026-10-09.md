@@ -20,9 +20,9 @@ Ignored directory: `local/releases/1.0.1/`. Emulator APKs are development-signed
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `treinwijzer-1.0.1-emulator-minified.apk` | `e7417ef5134ab28c29e0a1d400325e785a991b00bc026c81a776a0e6f1fa31c8` |
-| `treinwijzer-1.0.1-emulator.apk` | `2df155aefe5cd0a78e9f967d021738122fb3348f0c6a08ce5254b49eb958b11d` |
-| `treinwijzer-1.0.1-unsigned-arm64.apk` | `1f8c51f45070b3f2e356fdabbdf559ee870aa9189cea1975f9852b0e3613a1f6` |
+| `treinwijzer-1.0.1-emulator-minified.apk` | `aaa8305615fb8e85d5d31f251e329a8c6feea9fca3b5a76bb56c7d0a567ef7a8` |
+| `treinwijzer-1.0.1-emulator.apk` | `6b3b89d3676c2862a7e6c2f8a4cccbac5bacba8c5406fc876c51fd8f01baeebe` |
+| `treinwijzer-1.0.1-unsigned-arm64.apk` | `9aef96cfcb1a6f1f44aae7b92e7d50c76aa56e363e254e27a023deef49d28914` |
 
 ## Remaining gates
 
@@ -63,3 +63,7 @@ The tool's 35 tests, lint and normal emulator build pass. The revised layout rem
 The normal/minified emulator APKs and the clean extracted unsigned arm64 release rebuilt successfully for these corrections. Signature/unsigned status and the isolated Light URL were verified for all three. The refreshed minified APK hash is `e7417ef5134ab28c29e0a1d400325e785a991b00bc026c81a776a0e6f1fa31c8`; this supersedes the previously loaded APK. The upstream R8 metadata warnings remain unchanged.
 
 The refreshed minified candidate installed successfully and was relaunched on the discovered emulator, with version 1.0.1/code 2 and app data preserved. The process and foreground activity were verified. This does not confirm the corrected layouts visually; the user must recheck the supplied scenarios.
+
+## Station A–Z letter buttons
+
+The supplied screenshot showed clipped letter glyphs. The button height increased from 1.55 to 2.1 grid units, and inner vertical padding was removed. The 1080×1240 layout budget at normal font scale allows all 26 letters in nine rows with approximately 72 px spare; this is a source calculation, not a visual emulator result. Tool lint, normal and minified emulator builds and the 12-file extracted unsigned arm64 release pass. The artifact table and saved source archive above now include this correction. The updated minified APK is installed and foregrounded; human confirmation of complete letters and no scrolling remains pending.

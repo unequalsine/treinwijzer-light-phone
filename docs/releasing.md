@@ -81,3 +81,7 @@ At the user’s request, the prepared candidate and refreshed project README wer
 ## Upstream history reconciliation — 9 October 2026
 
 The official SDK history through `311aa2d81e03e7df2603fa3943d05e4aad51d29b` is now merged, rather than represented only by the earlier source import. Two unchanged upstream build helpers (`builder/bin/build.sh` and `builder/bin/maven-proxy.sh`) were restored; an ignore exception prevents new files in that upstream directory from being skipped. All 417 tracked files under SDK/plugin/builder/signer/trust-format/examples/lint-rules match upstream, including executable modes. Treinwijzer tool files and the README are unchanged by the merge. The candidate APK and human validation status are unchanged.
+
+## Station letter grid correction — 9 October 2026
+
+Human screenshot feedback showed clipped letters in the A–Z selector. Letter buttons now use 2.1 grid units of height (84 px at 1080×1240), up from 1.55, with the redundant inner vertical padding removed. At the supplied viewport and normal font scale, even nine rows for all 26 letters leave approximately 72 px below the content, so scrolling should not be needed. The actual NS station index currently has eight rows. Lint and normal/minified emulator packaging pass; the updated minified candidate is installed. Human visual confirmation remains required.
