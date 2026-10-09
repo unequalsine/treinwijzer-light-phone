@@ -73,3 +73,7 @@ The rebuilt minified `1.0.1` (code `2`) APK is installed and running in the emul
 ## Screenshot feedback
 
 The supplied human emulator screenshots exposed clipped home shortcut labels and timeline times, plus an oversized favourite action label. The candidate now lets shortcut buttons grow with their content, reduces utility action/time text and measures the complete time column consistently across the timeline. Recheck the home screen, favourite add/remove action and active/trip-detail timeline in English and Dutch before accepting this candidate. This is a tool-only layout correction; the live backend remains unchanged.
+
+## Public source publication — 9 October 2026
+
+At the user’s request, the prepared candidate and refreshed project README were published to public repository `unequalsine/treinwijzer-light-phone`, default branch `main`, at commit `3404401`. The repository remains MIT licensed. This completes source publication; the earlier references to source publishing being outstanding describe the state before this step. Human emulator confirmation, screenshots, hosted signing and Tool Library submission/approval remain pending. Publication did not deploy or change either backend.
