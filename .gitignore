@@ -27,6 +27,7 @@ out/
 .springBeans
 .sts4-cache
 bin/
+!/builder/bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 

@@ -77,3 +77,7 @@ The supplied human emulator screenshots exposed clipped home shortcut labels and
 ## Public source publication — 9 October 2026
 
 At the user’s request, the prepared candidate and refreshed project README were published to public repository `unequalsine/treinwijzer-light-phone`, default branch `main`, at commit `3404401`. The repository remains MIT licensed. This completes source publication; the earlier references to source publishing being outstanding describe the state before this step. Human emulator confirmation, screenshots, hosted signing and Tool Library submission/approval remain pending. Publication did not deploy or change either backend.
+
+## Upstream history reconciliation — 9 October 2026
+
+The official SDK history through `311aa2d81e03e7df2603fa3943d05e4aad51d29b` is now merged, rather than represented only by the earlier source import. Two unchanged upstream build helpers (`builder/bin/build.sh` and `builder/bin/maven-proxy.sh`) were restored; an ignore exception prevents new files in that upstream directory from being skipped. All 417 tracked files under SDK/plugin/builder/signer/trust-format/examples/lint-rules match upstream, including executable modes. Treinwijzer tool files and the README are unchanged by the merge. The candidate APK and human validation status are unchanged.
