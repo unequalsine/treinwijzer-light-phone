@@ -23,6 +23,6 @@ The minified build tests code and resource shrinking. The verification script ch
 
 Normal builds target `com.lightos`. The installer uses `-Ptreinwijzer.emulator=true` for debug builds only and `-Ptreinwijzer.production=true` for public backend access. To use a development backend instead, omit the production flag and set `treinwijzer.workerBaseUrl` and `treinwijzer.workerAccessToken` in ignored `local.properties`. Release builds always use the public Light service without a shared app token.
 
-Journey updates work while the tool is open, with unread alerts retrieved on reopening. A push tunnel is not required. The optional `start-push-tunnel.sh` helper is for SDK transport experiments; it is not used by Treinwijzer.
+Journey updates work while the tool is open, with unread alerts retrieved on reopening.
 
 For a physical phone, use [Tool Manager](sideloading/README.md).

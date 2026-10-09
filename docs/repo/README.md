@@ -2,8 +2,7 @@
 This repository contains a number of interdependent Gradle modules that make up the Light SDK. Here are their high level descriptions + a chart showing their relationships:
 
 ### [`:tool`](../../tool)
-This is the scaffold dev environment in which you should write your custom Light Phone tool, assuming that's what you're here to do! This module compiles into an Android APK which can be installed onto a Light Phone or Android emulator. Start by modifying [`HomeScreen.kt`](../../tool/src/main/kotlin/com/thelightphone/sample/HomeScreen.kt
-).
+Contains Treinwijzer’s source and tool configuration. This module compiles into an Android APK for a Light Phone or Android emulator. The main interface is [`TreinwijzerScreen.kt`](../../tool/src/main/kotlin/nl/treinwijzer/lightphone/TreinwijzerScreen.kt).
 
 ### [`:plugin`](../../plugin)
 Contains the source for a Gradle build plugin that polices which third-party dependencies can be pulled into any module that applies it. In an effort to keep Light Phone tools simple and safe, we are blocking most third-party libraries and plugins by default. The lists of allowed dependencies can be found in [`LightSdkPlugin.kt`](../../plugin/src/main/kotlin/com/thelightphone/plugin/LightSdkPlugin.kt). We are happy to add more to the allow-lists over time! If you've got an open-source or otherwise verifiable library that you think we should include, please make a PR. You are also free to modify these lists as you develop locally, but keep in mind that if you are expecting Light to sign/promote your tool, we will be compiling your `tool` source against the official `plugin` release found here.
@@ -30,7 +29,7 @@ An Android application meant to serve as a very simple LightOS emulator. It shou
 The examples directory contains a few different tools that were built using the SDK libraries.
 
 ### [`builder`](../../builder)
-(Not a Gradle module) This is the containerized build harness Light will run on our own servers to compile community tools. When you queue up a release to be signed and shared (see [Sharing Your Tool](../../README.md#sharing-your-tool)), we clone your public git commit into this image and build your `tool` module against a pinned copy of the SDK (offline and sandboxed) and we archive the extracted source alongside the APK. This is the first step toward fully reproducible builds, where anyone can rebuild a shared tool from source and verify it byte-for-byte against what we signed. See [`builder/README.md`](../../builder/README.md) for how to run it locally.
+(Not a Gradle module) Light’s build harness compiles submitted tools against a pinned SDK, offline and sandboxed, and archives the extracted source alongside the APK. See the [Tool Library guidelines](../../TOOL_GUIDELINES.md) and [`builder/README.md`](../../builder/README.md).
 
 ```mermaid
 ---

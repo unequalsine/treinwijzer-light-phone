@@ -126,20 +126,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 }
 
-/**
- * Uploads the debug APK to a device/emulator running the Light SDK server, via the
- * "developer" tool manager branch (see DeveloperModeDataTree.kt in sdk/server), and waits for
- * the device to report that the tool was (re)installed.
- *
- * Usage:
- *   ./gradlew :tool:uploadTool -Pdevice.ip=192.168.1.42 -Pdevice.token=<hex signing key> \
- *       [-Pdevice.port=54449] [-Pdevice.timeoutSeconds=60]
- *
- * device.token must be one of the device's HMAC signing keys, hex-encoded - either its
- * primaryKey (shown in the Tool Manager URL, e.g. "...#abc123") or a key minted/persisted under
- * the "Authentication" branch. Every request is signed with it (see authedRequest/sign below);
- * it is not sent as a bearer token.
- */
+// Uploads a debug APK through Tool Manager. device.token is its hex-encoded HMAC key.
 abstract class UploadToolTask : DefaultTask() {
 
     @get:Internal
@@ -163,10 +150,7 @@ abstract class UploadToolTask : DefaultTask() {
     @get:Internal
     abstract val pollIntervalSeconds: Property<Long>
 
-    // The server presents a cert for its own *.my.local-ip.co hostname (see
-    // ToolManagerServiceAndroid), which will never match when we connect straight to a LAN
-    // IP/port. Trusting everything here is fine: this is a local dev-upload tool talking
-    // to a device the caller already picked by IP, not a general-purpose HTTP client.
+    // Local development upload only; accepts the device's certificate without CA validation.
     private fun insecureHttpClient(): HttpClient {
         val trustAll = object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
@@ -187,12 +171,7 @@ abstract class UploadToolTask : DefaultTask() {
 
     private fun baseUrl() = "https://${localIpHost(ipAddress.get())}:${port.get()}"
 
-    // The server has no idea what an "Authorization: Bearer" header is - every /api/ request
-    // must instead be signed with HMAC-SHA256 over "method\npath\ntimestampMillis", keyed by the
-    // hex-decoded device.token (see RequestSigning.kt/ToolManagerAuth.kt in the toolmanager lib).
-    // device.token must therefore be a hex string - i.e. one of the keys the device itself
-    // generated (its primaryKey, shown in the Tool Manager URL) or minted (persisted, encrypted,
-    // under the "Authentication" branch) - not an arbitrary human-chosen password.
+    // Tool Manager authenticates requests with a hex-encoded HMAC-SHA256 key.
     private fun String.hexToBytes(): ByteArray {
         require(length % 2 == 0) { "device.token must be a hex-encoded key (odd length: $length)" }
         return ByteArray(length / 2) { i -> ((this[2 * i].digitToInt(16) shl 4) or this[2 * i + 1].digitToInt(16)).toByte() }
@@ -214,8 +193,7 @@ abstract class UploadToolTask : DefaultTask() {
             .header("X-Tm-Signature", sign(method, uri.rawPath, timestampMillis))
     }
 
-    // Server serializes the tools list as {"tools":[{"packageName":"...","lastUpdateMillis":n},...]}
-    // in declaration order (ApkInboxDataTree.ToolMeta).
+    // Matches Tool Manager's serialized ToolMeta field order.
     private fun extractLastUpdateMillis(json: String, packageName: String): Long? {
         val pattern = Regex(
             "\\{\"packageName\":\"${Regex.escape(packageName)}\",\"lastUpdateMillis\":(\\d+)\\}"

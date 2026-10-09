@@ -47,6 +47,22 @@ bin/
 
 ### Local configuration ###
 .claude/
+.codex/
+.agents/
+/CLAUDE.md
+/GEMINI.md
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+/secrets/
+/private-keys/
+*.log
+*.apk
+*.aab
+*.apks
+*.hprof
 
 ### Python (builder/) ###
 __pycache__/
@@ -55,6 +71,15 @@ __pycache__/
 
 ### Signing keys ###
 /signer/keys/
+*.p8
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.pem
+*.key
+!/sdk/keys/lightsdk-dev.jks
+!/signer/tests/vectors/bundle/*.pem
 
 ### Cloudflare local state ###
 .wrangler/

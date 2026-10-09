@@ -114,7 +114,7 @@ When you rebuild the emulator app, you can update it without a full reboot:
 adb install -r sdk/emulator/build/outputs/apk/debug/emulator-debug.apk
 ```
 
-The app will retain its system uid as long as the signing key and `sharedUserId` remain unchanged. The emulator app will log a [warning message](sdk/emulator/src/main/kotlin/com/thelightphone/sdk/emulator/MainActivity.kt) on startup if it is not running as a system app!
+The app will retain its system uid as long as the signing key and `sharedUserId` remain unchanged. The emulator app will log a [warning message](../../sdk/emulator/src/main/kotlin/com/thelightphone/sdk/emulator/MainActivity.kt) on startup if it is not running as a system app!
 
 #### Troubleshooting
 
