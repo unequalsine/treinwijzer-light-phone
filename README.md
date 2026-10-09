@@ -24,7 +24,7 @@ treinwijzer.workerBaseUrl=https://your-development-worker.example
 treinwijzer.workerAccessToken=your-development-app-token
 ```
 
-These Worker values affect **debug builds only**. Never commit credentials. Release builds select `https://treinwijzer.unequalsine.workers.dev` and contain no shared Worker token. The scoped public backend changes are prepared and tested; deployment is pending approval.
+These Worker values affect **debug builds only**. Never commit credentials. Release builds select `https://treinwijzer-light.unequalsine.workers.dev` and contain no shared Worker token. The separate Light service reuses the watch backend code with its own storage and credentials. Deployment is pending approval; the watch service is unchanged.
 
 ```sh
 ./gradlew -DlightSdk.toolOnly=true :tool:testDebugUnitTest :tool:lintDebug :tool:assembleDebug

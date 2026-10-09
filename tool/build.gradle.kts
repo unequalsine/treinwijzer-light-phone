@@ -31,7 +31,7 @@ android {
         rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
     }
     val productionMode = providers.gradleProperty("treinwijzer.production").orNull == "true"
-    val workerBaseUrl = if (productionMode) "https://treinwijzer.unequalsine.workers.dev" else localProps.getProperty(
+    val workerBaseUrl = if (productionMode) "https://treinwijzer-light.unequalsine.workers.dev" else localProps.getProperty(
         "treinwijzer.workerBaseUrl",
         "https://treinwijzer-light-dev.unequalsine.workers.dev",
     )
@@ -57,7 +57,7 @@ android {
         minSdk = rootProject.ext["minSdk"] as Int
         targetSdk = rootProject.ext["targetSdk"] as Int
 
-        buildConfigField("String", "WORKER_BASE_URL", configString("https://treinwijzer.unequalsine.workers.dev"))
+        buildConfigField("String", "WORKER_BASE_URL", configString("https://treinwijzer-light.unequalsine.workers.dev"))
         buildConfigField("String", "WORKER_ACCESS_TOKEN", configString(""))
     }
 

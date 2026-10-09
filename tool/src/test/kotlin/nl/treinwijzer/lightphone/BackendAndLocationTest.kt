@@ -45,13 +45,13 @@ class BackendAndLocationTest {
                 checkNotNull(javaClass.classLoader.getResource("fixtures/trip-contract.json")).readText(),
             ),
         )
-        val migrated = old.forBackend("https://treinwijzer.unequalsine.workers.dev/") { "new-install" }
+        val migrated = old.forBackend("https://treinwijzer-light.unequalsine.workers.dev/") { "new-install" }
         assertEquals("new-install", migrated.installId)
         assertNull(migrated.installSecret)
         assertNull(migrated.registeredPushEndpoint)
         assertNull(migrated.activeJourney)
         assertEquals(listOf(favourite), migrated.favouriteStations)
-        assertEquals(migrated, migrated.forBackend("https://treinwijzer.unequalsine.workers.dev"))
+        assertEquals(migrated, migrated.forBackend("https://treinwijzer-light.unequalsine.workers.dev"))
         assertEquals("dev-secret", old.forBackend("https://treinwijzer-light-dev.unequalsine.workers.dev").installSecret)
     }
 
