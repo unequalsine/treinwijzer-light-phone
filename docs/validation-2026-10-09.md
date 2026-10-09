@@ -1,6 +1,6 @@
 # Release candidate checks — 9 October 2026
 
-Status: **UNVALIDATED - requires emulator testing**. Production deployment was blocked by automatic approval review and has not occurred. No emulator display, screenshot, physical phone, hosted signing or dashboard submission was accessed.
+Status: **UNVALIDATED - requires emulator testing**. The original shared-service deployment was blocked. The subsequently approved separate Light service is now deployed; NS secret setup and functional production/emulator checks remain pending. No emulator display, screenshot, physical phone, hosted signing or dashboard submission was accessed.
 
 ## Initial checks before deployment isolation
 
@@ -37,3 +37,9 @@ Source publishing, third-party terms review, dashboard version-code comparison, 
 The shared-production proposal is superseded by the separate Light deployment preparation, backend branch head `5309609e6384cb5d929f23256d4f3abe25134ed5`. The artifact table above now contains the rebuilt candidate hashes. The watch Wrangler configuration was restored to the main-branch version. A Light-only entry point reuses the same backend engine, rejects watch access, strips APNs secrets/bindings and lists only Light active journeys. The Light configuration declares its own KV namespaces and SQLite Durable Object. Typecheck, all 121 backend tests, the isolated local runtime integration and its deployment dry run pass. The tool’s 35 tests, lint and normal debug build pass; the minified emulator and clean extracted unsigned arm64 release have been rebuilt. All three APKs contain the isolated URL and exclude the watch URL. No remote changes were made.
 
 The tool release URL now targets `https://treinwijzer-light.unequalsine.workers.dev`. Deployment and human emulator validation remain pending. Current artifact hashes are recorded in ignored `local/releases/1.0.1/artifact-hashes.json`; the earlier installed emulator APK uses the previous URL until reinstalled. Cost evidence and the user-confirmed paid plan are recorded in the backend runbook. Isolation adds no fixed subscription, but account allowances and any reused NS subscription quota remain shared.
+
+## Approved separate deployment
+
+On 9 October the user approved the separate Light service. Backend source `5309609e6384cb5d929f23256d4f3abe25134ed5` deployed successfully as `e02542c2-4a29-435b-8f97-6b3c149b5456`. Metadata confirms separate KV namespaces `a143e5b171324263aa1b19b0e5880768` and `e7eeb2c83e1b4483ae41fb6383622b9c`, Light Durable Object namespace `45797447d4b3464cbea0628203017cca`, cron and 50 ms CPU limit. No watch/APNs/NS secrets are bound. Before/after watch deployment records match exactly; watch version `5de48759-2e35-46d3-a143-a2a40a5f6c48` remains at 100%.
+
+A credential-free bootstrap check with the usual HTTP client returns 503 `Light service is not configured`, as designed before NS secret setup. Python's default client received Cloudflare 403/1010; no protections were changed. No installation, NS lookup, tracked journey, inbox or revocation was exercised in production. Functional validation must follow secure user configuration of `NS_API_KEY`. The rebuilt APKs remain saved locally; the emulator still has the earlier URL until the rebuilt candidate is installed.

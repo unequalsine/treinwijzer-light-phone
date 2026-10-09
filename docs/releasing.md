@@ -1,6 +1,6 @@
 # Treinwijzer LightOS release preparation
 
-Reviewed: 9 October 2026. **UNVALIDATED - requires emulator testing.** Release candidate `1.0.1` (code `2`) is built and the backend integration is implemented/tested. Production deployment is pending explicit approval; no dashboard submission has been made.
+Reviewed: 9 October 2026. **UNVALIDATED - requires emulator testing.** Release candidate `1.0.1` (code `2`) is built and the backend integration is implemented/tested. The user-approved separate Light service is deployed; NS secret setup and human validation remain pending. No dashboard submission has been made.
 
 ## Build and backend inputs
 
@@ -37,7 +37,7 @@ The proposed Light deployment creates separate KV namespaces and `LightState`, r
 
 The user confirmed the existing US$5/month paid account. A second Worker adds no fixed subscription fee. Recent read-only usage indicates ample request/KV allowance, so additional charges are not expected at this scale, but account-wide overages remain possible. The backend runbook records the evidence and limitation; no remote resources or plan changes have been made.
 
-After explicit deployment approval: use only `worker/wrangler.light.toml`, configure its NS secret, record new namespace IDs and verify public bootstrap/stations/trips/start-read-stop tracking and revocation without logging credentials. Until this succeeds, registration at the new release endpoint will fail. The emulator installed earlier still points to the watch URL; reinstall the rebuilt candidate after activation.
+After explicit deployment approval: use only `worker/wrangler.light.toml`, configure its NS secret, record new namespace IDs and verify public bootstrap/stations/trips/start-read-stop tracking and revocation without logging credentials. The approved Light-only deployment is complete (see the deployment result below); registration returns 503 until its NS secret is configured. The emulator installed earlier still points to the watch URL; reinstall the rebuilt candidate after activation.
 
 ## Human emulator checks
 
@@ -55,3 +55,9 @@ The user has **emulator only**. No AI emulator display, screenshots or UI valida
 Follow [Light’s current instructions](https://github.com/lightphone/light-sdk#submitting-your-tool): human-review and publish the source, then Developer Account → Manage Custom Tools → Submit New Tool. Supply human-captured screenshots (at least one is required) and human-authored external text/changelog. The package ID is taken from the default branch and cannot change later. Submit a reviewed full commit SHA. Verify code `2` exceeds the dashboard’s last version; raise it and rebuild if necessary.
 
 A successful hosted build produces a Light-signed APK pending approval. Build/signing and public-library approval are separate. Check [Tool Library guidelines](../TOOL_GUIDELINES.md), including privacy and third-party terms. No PR text, dashboard submission or public release has been sent by this preparation.
+
+## Approved Light deployment — 9 October 2026
+
+The user approved deployment of the separate service. Source `5309609e6384cb5d929f23256d4f3abe25134ed5` is live as version `e02542c2-4a29-435b-8f97-6b3c149b5456` at `https://treinwijzer-light.unequalsine.workers.dev`. Its newly created KV and SQLite Durable Object namespaces are separate from the watch service; IDs are recorded in the backend configuration. The watch deployment remained exactly unchanged at `5de48759-2e35-46d3-a143-a2a40a5f6c48`.
+
+The endpoint returns the expected 503 because `NS_API_KEY` has not been configured. The user must add that secret in Cloudflare Workers & Pages → `treinwijzer-light` → Settings → Variables and Secrets, then save/deploy. Functional production smoke checks and reloading the rebuilt emulator candidate follow that setup. No watch/APNs secrets were copied, and no billing plan changed. The deployment itself succeeded; this is not yet a functional release validation.
