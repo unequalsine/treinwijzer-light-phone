@@ -69,3 +69,7 @@ The user configured the NS secret. Initial live checks exposed empty-body test-i
 Live registration/renewal, credential rejection, stations/search/departures/disruptions, trip planning, tracking start/read/stop, a real scheduled NS poll, empty owned inbox/ack and revocation all pass. The successful test installation was removed. The first attempt left an inactive installation after its cleanup failed; its credentials were not retained, and it expires under the normal 90-day policy. Backend details and limits are recorded in the runbook.
 
 The rebuilt minified `1.0.1` (code `2`) APK is installed and running in the emulator. The foreground component is `nl.treinwijzer.lightphone/com.thelightphone.sdk.LightActivity`, and LightOS reports SDK `0.2.0`. No screenshots, emulator display access or human UI confirmation occurred. The APK hashes are unchanged from the isolated rebuild. Human checks above, source publishing and Light signing/submission remain outstanding.
+
+## Screenshot feedback
+
+The supplied human emulator screenshots exposed clipped home shortcut labels and timeline times, plus an oversized favourite action label. The candidate now lets shortcut buttons grow with their content, reduces utility action/time text and measures the complete time column consistently across the timeline. Recheck the home screen, favourite add/remove action and active/trip-detail timeline in English and Dutch before accepting this candidate. This is a tool-only layout correction; the live backend remains unchanged.

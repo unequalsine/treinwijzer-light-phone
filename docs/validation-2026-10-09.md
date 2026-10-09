@@ -20,9 +20,9 @@ Ignored directory: `local/releases/1.0.1/`. Emulator APKs are development-signed
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `treinwijzer-1.0.1-emulator-minified.apk` | `24c66bff2a8e0416bedb058293efae1a19f34a01cad9a33119bfa1fdcbbf9ee7` |
-| `treinwijzer-1.0.1-emulator.apk` | `673a425b09f2c3fe75a9c1ea6fbe8e58cb148ffe4b0540e86b907a34f3245817` |
-| `treinwijzer-1.0.1-unsigned-arm64.apk` | `9f747802b714acf5c091aa1ff153ac32cec21e5ff99576cd4f551703caa761ba` |
+| `treinwijzer-1.0.1-emulator-minified.apk` | `e7417ef5134ab28c29e0a1d400325e785a991b00bc026c81a776a0e6f1fa31c8` |
+| `treinwijzer-1.0.1-emulator.apk` | `2df155aefe5cd0a78e9f967d021738122fb3348f0c6a08ce5254b49eb958b11d` |
+| `treinwijzer-1.0.1-unsigned-arm64.apk` | `1f8c51f45070b3f2e356fdabbdf559ee870aa9189cea1975f9852b0e3613a1f6` |
 
 ## Remaining gates
 
@@ -51,3 +51,15 @@ The owner configured the NS secret. Version `fea66b5b-f289-4792-a156-c7be753aa28
 Repeated live checks passed public registration/renewal, missing/wrong credential rejection, watch-route rejection, 397 NS stations, station search, departures, disruptions, two trip options, tracking start/read/stop, a real cron NS refresh, empty inbox/ack and test-installation revocation. The cron check made only its owned test journey due and retained its expiry. No alert was fabricated, so populated production inbox delivery is not claimed. The completed test installation was revoked and further access returned 401. An inactive first-attempt installation remains under the normal 90-day expiry after its failed cleanup lost in-memory credentials; its journey was already stopped.
 
 The exact saved minified candidate (`24c66bff2a8e0416bedb058293efae1a19f34a01cad9a33119bfa1fdcbbf9ee7`) installed successfully on the discovered emulator. Package metadata confirms version 1.0.1/code 2, its process is running and its LightActivity is foreground. The LightOS HTTP version endpoint reports 0.2.0. App data was preserved. This is installation/process evidence; no display, screenshot, physical phone, human interaction, hosted signing or dashboard submission evidence is implied.
+
+## Human screenshots and layout corrections
+
+The user supplied `/Users/jeroen/Desktop/Screenshot_1791546387.png`, `Screenshot_1791546377.png` and `Screenshot_1791546381.png`, showing the departures/favourite actions, active journey timeline and home screen. They demonstrate that the emulator reaches these screens, but identify three layout failures: an oversized favourite label, clipped final time digits and cropped home shortcut labels. This is human-provided evidence; no AI emulator display or screenshot capture was used.
+
+The tool now uses smaller favourite/disruption action text with matching content-sized button heights. The home shortcuts have a minimum height and grow to fit the icon row and up to two lines of label text. Timeline times use smaller monospaced text, and the shared time column is measured for all five `HH:mm` characters at the current text scale. Rail, ride and transfer spacing use the same computed width. No SDK modules, labels, backend behaviour or service deployments changed.
+
+The tool's 35 tests, lint and normal emulator build pass. The revised layout remains **UNVALIDATED - requires emulator testing** until the user checks the three screens again, including Dutch labels. The release artifact table is updated to the rebuilt candidate hashes after packaging.
+
+The normal/minified emulator APKs and the clean extracted unsigned arm64 release rebuilt successfully for these corrections. Signature/unsigned status and the isolated Light URL were verified for all three. The refreshed minified APK hash is `e7417ef5134ab28c29e0a1d400325e785a991b00bc026c81a776a0e6f1fa31c8`; this supersedes the previously loaded APK. The upstream R8 metadata warnings remain unchanged.
+
+The refreshed minified candidate installed successfully and was relaunched on the discovered emulator, with version 1.0.1/code 2 and app data preserved. The process and foreground activity were verified. This does not confirm the corrected layouts visually; the user must recheck the supplied scenarios.

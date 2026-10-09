@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -36,10 +37,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -213,7 +217,7 @@ private fun HomeContent(state: TreinwijzerUiState, copy: Copy, vm: TreinwijzerVi
             onClick = vm::openPlanner,
         )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
             HomeShortcut(LightIcons.DIRECTIONS_TRAIN, copy.departures, Modifier.weight(1f)) {
@@ -317,7 +321,7 @@ private fun DeparturesContent(mode: ScreenMode.Departures, state: TreinwijzerUiS
     ScreenFrame(mode.station.name, vm::back) {
         val favourite = state.persisted.favouriteStations.any { it.code == mode.station.code }
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
         ) {
             UtilityAction(
@@ -1038,6 +1042,29 @@ private fun JourneyTimeline(trip: TripOption, copy: Copy, now: Instant? = null, 
 }
 
 @Composable
+private fun timelineTimeStyle() = TextStyle(
+    fontSize = 20f.designVerticalPxToSp(),
+    lineHeight = 25f.designVerticalPxToSp(),
+    fontFamily = FontFamily.Monospace,
+    fontWeight = FontWeight.Normal,
+)
+
+@Composable
+private fun timelineTimeColumnWidth(): Dp {
+    val measuredWidth = rememberTextMeasurer().measure(
+        text = "00:00",
+        style = timelineTimeStyle(),
+        maxLines = 1,
+        softWrap = false,
+    ).size.width
+    val textWidth = with(LocalDensity.current) { measuredWidth.toDp() }
+    return maxOf(
+        3.75f.gridUnitsAsDp(),
+        textWidth + timelineTimeEndPaddingGridUnits.gridUnitsAsDp(),
+    )
+}
+
+@Composable
 private fun TimelineStation(
     station: String,
     plannedTime: String,
@@ -1059,7 +1086,7 @@ private fun TimelineStation(
     ) {
         Column(
             modifier = Modifier
-                .width(timelineTimeColumnGridUnits.gridUnitsAsDp())
+                .width(timelineTimeColumnWidth())
                 .offset(y = timelineTimeOpticalOffsetPx.designVerticalPxToDp())
                 .padding(
                     end = timelineTimeEndPaddingGridUnits.gridUnitsAsDp(),
@@ -1067,12 +1094,14 @@ private fun TimelineStation(
                 ),
             horizontalAlignment = Alignment.End,
         ) {
-            LightText(
-                time(plannedTime),
-                LightTextVariant.Subheading,
-                align = TextAlign.End,
+            Text(
+                text = time(plannedTime),
+                style = timelineTimeStyle(),
+                color = LightThemeTokens.colors.content,
+                textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
+                softWrap = false,
             )
             if (delayMinutes > 0) {
                 TimelineDelay(
@@ -1124,7 +1153,7 @@ private fun TimelineStation(
 
 @Composable
 private fun TimelineRide(leg: TripLeg, copy: Copy, isPast: Boolean = false) {
-    val timeColumnWidth = timelineTimeColumnGridUnits.gridUnitsAsDp()
+    val timeColumnWidth = timelineTimeColumnWidth()
     val railColumnWidth = timelineRailColumnGridUnits.gridUnitsAsDp()
     val lineWidth = 2f.designVerticalPxToDp()
     val lineColour = LightThemeTokens.colors.content
@@ -1142,7 +1171,7 @@ private fun TimelineRide(leg: TripLeg, copy: Copy, isPast: Boolean = false) {
             }
             .timelinePastAlpha(isPast),
     ) {
-        Spacer(Modifier.width(timelineTimeColumnGridUnits.gridUnitsAsDp()))
+        Spacer(Modifier.width(timelineTimeColumnWidth()))
         Spacer(Modifier.width(timelineRailColumnGridUnits.gridUnitsAsDp()))
         Column(
             Modifier
@@ -1281,7 +1310,7 @@ private fun TimelineTransferWait(
     ) {
         Spacer(
             Modifier.width(
-                (timelineTimeColumnGridUnits + timelineRailColumnGridUnits + timelineContentPaddingGridUnits).gridUnitsAsDp(),
+                timelineTimeColumnWidth() + (timelineRailColumnGridUnits + timelineContentPaddingGridUnits).gridUnitsAsDp(),
             ),
         )
         Column(
@@ -1528,11 +1557,12 @@ private fun HomeShortcut(
     Column(
         modifier
             .padding(vertical = 0.25f.gridUnitsAsDp())
-            .height(3.15f.gridUnitsAsDp())
+            .heightIn(min = 3.15f.gridUnitsAsDp())
+            .fillMaxHeight()
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
             .padding(0.55f.gridUnitsAsDp()),
-        verticalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(0.35f.gridUnitsAsDp()),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             HomeMenuIcon(icon)
@@ -2092,6 +2122,7 @@ private fun UtilityAction(
     Row(
         modifier = modifier
             .padding(vertical = 0.3f.gridUnitsAsDp())
+            .fillMaxHeight()
             .border(2f.designVerticalPxToDp(), LightThemeTokens.colors.content)
             .lightClickable(onClick = onClick)
             .padding(horizontal = 0.6f.gridUnitsAsDp(), vertical = 0.55f.gridUnitsAsDp()),
@@ -2112,7 +2143,7 @@ private fun UtilityAction(
         }
         LightText(
             title,
-            LightTextVariant.Paragraph,
+            LightTextVariant.Detail,
             modifier = Modifier.weight(1f).padding(start = 0.45f.gridUnitsAsDp()),
             maxLines = 2,
         )
@@ -2398,7 +2429,6 @@ private fun Section(text: String) {
     )
 }
 
-private const val timelineTimeColumnGridUnits = 3.75f
 private const val timelineRailColumnGridUnits = 0.75f
 private const val timelineContentPaddingGridUnits = 0.55f
 private const val timelineTimeEndPaddingGridUnits = 0.4f
