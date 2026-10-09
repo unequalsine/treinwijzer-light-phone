@@ -17,7 +17,7 @@ module. They will look like:
 | File                                      | Purpose                                                |
 |-------------------------------------------|--------------------------------------------------------|
 | `tool/lighttool.toml`                     | Tool id, label, versionCode/Name, declared permissions |
-| `tool/build.gradle.kts`                   | The dev's allowed dependencies (Compose, Ktor, etc.)   |
+| `tool/lightbuild.toml`                    | Declarative hosted dependencies and string constants   |
 | `tool/src/main/kotlin/**/*.kt`            | Tool source                                            |
 | `tool/src/main/res/**`, `assets/**`       | Resources and assets                                   |
 
@@ -26,18 +26,76 @@ Reminder that you should **not** write/change `AndroidManifest.xml` — the plug
 plugin also rejects setting `applicationId`, `versionCode`, `versionName`,
 or `namespace` in `build.gradle.kts`.
 
+## Hosted build configuration
+
+Hosted builds require `tool/lightbuild.toml`, which may be empty. The builder
+ignores the developer’s `build.gradle.kts` and generates its own script with
+mandatory Android, Kotlin, KSP and Light SDK plugins. Local development still
+uses the developer’s Gradle script. Existing submissions must migrate their
+hosted dependencies and constants to this file before building again.
+
+```toml
+[release]
+minify = true
+
+[[dependencies]]
+module = "io.ktor:ktor-client-core:3.4.2"
+# configuration defaults to "implementation"
+
+[[dependencies]]
+module = "androidx.room:room-compiler:2.7.0"
+configuration = "ksp"
+
+[[dependencies]]
+module = "androidx.compose:compose-bom:2026.03.01"
+platform = true
+
+[[dependencies]]
+module = "androidx.compose.ui:ui"
+
+[[dependencies]]
+module = "io.github.david-allison:anki-android-backend:0.1.70-anki26.09.3"
+exclude = ["com.google.protobuf:protobuf-javalite"]
+
+[buildConfig]
+API_URL = "https://example.com"
+```
+
+The SDK client dependency is always included. Supported configurations are
+`implementation`, `compileOnly`, `runtimeOnly`, `ksp`, `testImplementation`
+and `testRuntimeOnly`. Modules use `group:artifact[:exact-version]`; omit the
+version only when supplied by a BOM. The existing plugin still enforces the
+dependency and KSP processor allowlists. Custom plugins, tasks, compiler
+options, file dependencies, classifiers, dynamic/snapshot versions and unknown
+fields are rejected. BuildConfig supports string constants only, with uppercase
+field names; Android-generated names are reserved. No supplied value is
+evaluated as Kotlin. Archives contain both the declarative input and generated
+script, and collection refuses a workspace whose script differs from that
+configuration.
+
+`release.minify` is a boolean, defaulting to `false` as in Android's default
+release configuration. Setting it to `true` enables R8 and resource shrinking
+with the trusted default optimization rules. Treinwijzer declares `true` to
+preserve its existing release behavior.
+
+The collector check is an integrity check on the supported build route, not an
+authenticated attestation. Signing services must accept recipes and APKs only
+from the trusted pinned builder, as before; a recipe supplied by a developer
+is not proof that the builder ran. Rebuild the builder image to deploy this
+change.
+
 ## Architecture
 
 ```
    ┌────────────────────────┐         ┌──────────────────────────┐
    │ your tool repo         │         │  baked-in SDK source     │
    │  tool/lighttool.toml   │         │  (pinned commit, built   │
-   │  tool/build.gradle.kts │         │   at image build time)   │
+   │  tool/lightbuild.toml  │         │   at image build time)   │
    │  tool/src/main/...     │         └─────────────┬────────────┘
    └───────────┬────────────┘                       │
                │                                    │
                │   allowlist extraction             │
-               │   + pre-flight build-script scan   │
+               │   + trusted build-script generation   │
                ▼                                    ▼
             ┌─────────────────────────────────────────┐
             │   workspace = SDK ⊕ extracted files     │
@@ -258,7 +316,7 @@ Inside `--output-dir`:
 | `tool-unsigned.apk` | The build artifact.                                                 |
 | `recipe.json`    | SHA-256 + every input that fed the build. The signing job must verify the tool commit against this before signing. |
 | `extraction.json`| List of files the extractor accepted from the dev's repo.              |
-| `extracted-source.zip` | The accepted source files themselves, zipped exactly as staged into the tool module (`build.gradle.kts`, `lighttool.toml`, `src/main/**`). Deterministic archive — same commit produces a byte-identical zip. |
+| `extracted-source.zip` | The accepted source files themselves, zipped exactly as staged into the tool module (generated `build.gradle.kts`, `lightbuild.toml`, `lighttool.toml`, `src/main/**`). Deterministic archive — same commit produces a byte-identical zip. |
 | `build.log`      | Gradle stdout/stderr, plus the extractor's log.                        |
 | `error.json`     | Present only on policy-violation failure; describes why.               |
 

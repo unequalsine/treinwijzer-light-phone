@@ -42,6 +42,7 @@ def _make_dev_repo(root: Path, subpath: str = "tool") -> Path:
     (res / "strings.xml").write_text('<?xml version="1.0"?><resources/>\n')
     (tool / "build.gradle.kts").write_text(VALID_BUILD_GRADLE)
     (tool / "lighttool.toml").write_text(VALID_LIGHTTOOL_TOML)
+    (tool / "lightbuild.toml").write_text("")
     return root
 
 
@@ -72,38 +73,38 @@ def test_missing_lighttool_toml_rejected(tmp_path: Path) -> None:
         extract(dev, dst)
 
 
-def test_missing_build_gradle_rejected(tmp_path: Path) -> None:
+def test_missing_declarative_build_config_rejected(tmp_path: Path) -> None:
+    dev = _make_dev_repo(tmp_path / "dev")
+    (dev / "tool" / "lightbuild.toml").unlink()
+    with pytest.raises(ExtractionError, match="lightbuild.toml is required"):
+        extract(dev, tmp_path / "workspace" / "tool")
+
+
+@pytest.mark.parametrize("script", [
+    "plugins { alias(libs.plugins.android.application) }",
+    "buildscript { }",
+    "apply(from = \"evil.gradle.kts\")",
+    "tasks.register(\"replaceApk\") { doLast { file(\"build/outputs/apk/release/tool-release.apk\").writeBytes(byteArrayOf(1)) } }",
+    "afterEvaluate { tasks.named(\"assembleRelease\") { setActions(emptyList()) } }",
+])
+def test_developer_build_script_is_never_staged(tmp_path: Path, script: str) -> None:
+    dev = _make_dev_repo(tmp_path / "dev")
+    original = dev / "tool" / "build.gradle.kts"
+    original.write_text(script)
+    dst = tmp_path / "workspace" / "tool"
+    extract(dev, dst)
+    generated = (dst / "build.gradle.kts").read_text()
+    assert "alias(libs.plugins.light.sdk)" in generated
+    assert script not in generated
+    assert original.read_text() == script
+
+
+def test_local_gradle_script_is_not_required(tmp_path: Path) -> None:
     dev = _make_dev_repo(tmp_path / "dev")
     (dev / "tool" / "build.gradle.kts").unlink()
     dst = tmp_path / "workspace" / "tool"
-    dst.mkdir(parents=True)
-
-    with pytest.raises(ExtractionError, match="build.gradle.kts is required"):
-        extract(dev, dst)
-
-
-def test_malicious_build_script_rejected(tmp_path: Path) -> None:
-    dev = _make_dev_repo(tmp_path / "dev")
-    (dev / "tool" / "build.gradle.kts").write_text(
-        VALID_BUILD_GRADLE + "\nbuildscript { }\n"
-    )
-    dst = tmp_path / "workspace" / "tool"
-    dst.mkdir(parents=True)
-
-    with pytest.raises(ExtractionError, match="buildscript"):
-        extract(dev, dst)
-
-
-def test_apply_from_in_build_script_rejected(tmp_path: Path) -> None:
-    dev = _make_dev_repo(tmp_path / "dev")
-    (dev / "tool" / "build.gradle.kts").write_text(
-        VALID_BUILD_GRADLE + '\napply(from = "evil.gradle.kts")\n'
-    )
-    dst = tmp_path / "workspace" / "tool"
-    dst.mkdir(parents=True)
-
-    with pytest.raises(ExtractionError, match="apply\\(from"):
-        extract(dev, dst)
+    extract(dev, dst)
+    assert "alias(libs.plugins.light.sdk)" in (dst / "build.gradle.kts").read_text()
 
 
 def test_disallowed_source_extension_rejected(tmp_path: Path) -> None:

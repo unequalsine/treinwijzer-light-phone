@@ -1,0 +1,5 @@
+[[dependencies]]
+module = "io.ktor:ktor-server-core:3.4.2"
+
+[[dependencies]]
+module = "io.ktor:ktor-server-cio:3.4.2"

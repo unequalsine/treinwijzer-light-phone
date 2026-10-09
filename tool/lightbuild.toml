@@ -1,0 +1,6 @@
+[release]
+minify = true
+
+[buildConfig]
+WORKER_BASE_URL = "https://treinwijzer-light.unequalsine.workers.dev"
+WORKER_ACCESS_TOKEN = ""

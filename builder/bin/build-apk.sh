@@ -166,7 +166,7 @@ rm -rf "$WORKSPACE/tool/build" "$WORKSPACE/build"
 
 # --- Prepare phase (Python) --------------------------------------------------
 # Reads dev repo, validates lighttool.toml, extracts allowlisted files into
-# the workspace's tool/ module, writes manifest + build.gradle.kts.
+# the workspace's tool/ module, generates trusted build.gradle.kts from lightbuild.toml.
 echo ">> staging tool module from dev source"
 python3 -m lightbuilder prepare \
     --dev-repo "$DEV_REPO" \

@@ -5,8 +5,8 @@ Subcommands:
 * ``prepare`` — given a checked-out dev repo on disk, run the whitelist
   extraction into the baked-in SDK's tool/ module. The SDK's Gradle plugin
   reads the extracted ``lighttool.toml`` at configure time and generates the
-  AndroidManifest.xml + applies applicationId/versionCode/versionName. Nothing
-  else happens here.
+  AndroidManifest.xml + applies applicationId/versionCode/versionName. The
+  builder generates trusted Gradle logic from lightbuild.toml.
 
 * ``collect`` — after gradle finishes, locate the unsigned APK, copy it to
   the output dir, and emit ``recipe.json`` with the SHA-256 and every input
@@ -35,7 +35,7 @@ from pathlib import Path
 
 import tomllib
 
-from . import extract, native, recipe
+from . import buildscript, extract, native, recipe
 
 
 def cmd_prepare(args: argparse.Namespace) -> int:
@@ -74,8 +74,9 @@ def _write_source_zip(
 ) -> None:
     """Bundle the exact files the extractor accepted into a zip.
 
-    Contents mirror the staged tool module layout (build.gradle.kts,
-    lighttool.toml, src/main/**), so the zip is a faithful copy of the source
+    Contents mirror the staged tool module layout (generated build.gradle.kts,
+    lightbuild.toml, lighttool.toml, src/main/**), so the zip is a faithful copy
+    of the source
     that fed gradle — nothing more, nothing less than what extraction.json
     lists. Written deterministically (sorted entries, fixed timestamp/mode) so
     two builds of the same commit produce a byte-identical archive.
@@ -93,6 +94,14 @@ def _write_source_zip(
 
 
 def cmd_collect(args: argparse.Namespace) -> int:
+    tool = args.workspace / "tool"
+    try:
+        expected = buildscript.render((tool / "lightbuild.toml").read_text(encoding="utf-8"))
+        if (tool / "build.gradle.kts").read_text(encoding="utf-8") != expected:
+            raise buildscript.BuildConfigError("hosted build script differs from the trusted template")
+    except (OSError, UnicodeError, buildscript.BuildConfigError) as exc:
+        _emit_error(args.output_dir, "policy_violation", str(exc))
+        return 2
     apk = _find_unsigned_apk(args.workspace)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     out_apk = args.output_dir / "tool-unsigned.apk"

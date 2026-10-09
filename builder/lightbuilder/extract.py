@@ -7,7 +7,7 @@ discarded.
 
 What we carry over:
   * tool/src/main/{kotlin,java,res,assets}/**  (extension-allowlisted)
-  * tool/build.gradle.kts                       (static-scanned before gradle runs)
+  * tool/lightbuild.toml                        (declarative hosted configuration)
   * tool/lighttool.toml                          (parsed by the SDK's plugin)
 
 Anything outside that, anything symlinked, anything inside a forbidden path
@@ -25,9 +25,9 @@ import stat as stat_mod
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import buildscript
 from .allowlist import (
     ALLOWED_TOOL_ROOT_FILES,
-    BUILD_SCRIPT_FORBIDDEN_PATTERNS,
     EXTRACTION_TREES,
     FORBIDDEN_PATH_COMPONENTS,
     FORBIDDEN_TOOL_ROOT_FILES,
@@ -96,6 +96,13 @@ def extract(
     report = ExtractionReport()
 
     _copy_tool_root_files(src_tool=src_tool, dest_tool=dest_tool, report=report)
+    try:
+        generated = buildscript.render((dest_tool / "lightbuild.toml").read_text(encoding="utf-8"))
+    except (buildscript.BuildConfigError, UnicodeError) as exc:
+        raise ExtractionError(f"tool/lightbuild.toml: {exc}") from exc
+    build_file = dest_tool / "build.gradle.kts"
+    build_file.write_text(generated, encoding="utf-8")
+    report.record("build.gradle.kts", len(generated.encode("utf-8")), build_file)
 
     for subdir, allowed_exts in EXTRACTION_TREES.items():
         src_tree = src_main / subdir
@@ -135,8 +142,6 @@ def _copy_tool_root_files(
         size = entry.stat().st_size
         if size > MAX_FILE_SIZE_BYTES:
             raise ExtractionError(f"{entry.name} exceeds {MAX_FILE_SIZE_BYTES} bytes")
-        if entry.name == "build.gradle.kts":
-            _scan_build_script(entry)
         dest = dest_tool / entry.name
         dest.parent.mkdir(parents=True, exist_ok=True)
         # Overwrite atomically by writing alongside and renaming. We don't
@@ -147,25 +152,9 @@ def _copy_tool_root_files(
         report.record(entry.name, size, dest)
         seen.add(entry.name)
 
-    for required in ("build.gradle.kts", "lighttool.toml"):
+    for required in ("lightbuild.toml", "lighttool.toml"):
         if required not in seen:
             raise ExtractionError(f"tool/{required} is required")
-
-
-def _scan_build_script(path: Path) -> None:
-    """Refuse probably-malicious build scripts before gradle parses them.
-    """
-    content = path.read_text(encoding="utf-8", errors="strict")
-    stripped = _strip_kotlin_comments(content)
-    for pattern, message in BUILD_SCRIPT_FORBIDDEN_PATTERNS:
-        if pattern.search(stripped):
-            raise ExtractionError(f"tool/build.gradle.kts: {message}")
-
-
-def _strip_kotlin_comments(text: str) -> str:
-    import re as _re
-    no_block = _re.sub(r"/\*.*?\*/", "", text, flags=_re.DOTALL)
-    return _re.sub(r"//.*", "", no_block)
 
 
 def _walk_and_copy(

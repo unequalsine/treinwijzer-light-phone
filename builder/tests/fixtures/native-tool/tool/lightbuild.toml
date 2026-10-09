@@ -1,0 +1,3 @@
+[[dependencies]]
+module = "io.github.david-allison:anki-android-backend:0.1.70-anki26.09.3"
+exclude = ["com.google.protobuf:protobuf-javalite"]
