@@ -1,3 +1,13 @@
+# Contributing to Treinwijzer
+
+Thanks for helping make train travel simpler on Light Phone III. Report Treinwijzer bugs and discuss proposed tool changes in [this repository’s issues](https://github.com/unequalsine/treinwijzer-light-phone/issues). Include reproduction steps, the version or commit you tested, and human-captured screenshots for layout issues.
+
+Treinwijzer product changes belong in `tool/`; leave the imported SDK modules unchanged. Run `./gradlew check` and validate changed behaviour in the emulator. Respect the API/dependency restrictions, code of conduct and human communication policy below.
+
+The following guide is retained from the official Light SDK. Its Light-team contribution approval process and upstream issue links apply to SDK changes; Treinwijzer tool reports belong in this repository.
+
+---
+
 # Contributing
 
 **The [code of conduct](CODE_OF_CONDUCT.md) applies to all contributions, please go check that out first.**
